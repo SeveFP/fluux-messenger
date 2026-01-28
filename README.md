@@ -37,10 +37,10 @@
 | <a href="assets/readme/chatroom.png"><img src="assets/readme/chatroom.png" width="250" style="border-radius: 8px;" alt="Chat Room"/></a> | <a href="assets/readme/console.png"><img src="assets/readme/console.png" width="250" style="border-radius: 8px;" alt="XMPP Console"/></a> |
 | *Multi-user Chat* | *XMPP Debug Interface* |
 
-| Language Settings | Login Screen |
-|-------------------|---|
-| <a href="assets/readme/languages.png"><img src="assets/readme/languages.png" width="250" style="border-radius: 8px;" alt="Language Settings"/></a> | <a href="assets/readme/login.png"><img src="assets/readme/login.png" width="250" style="border-radius: 8px;" alt="Login Screen"/></a> |
-| *Currently supporting 8 languages* | *Simple Login Interface* |
+| Language Settings | Login Screen | Theme System |
+|-------------------|---|-------------|
+| <a href="assets/readme/languages.png"><img src="assets/readme/languages.png" width="250" style="border-radius: 8px;" alt="Language Settings"/></a> | <a href="assets/readme/login.png"><img src="assets/readme/login.png" width="250" style="border-radius: 8px;" alt="Login Screen"/></a> | <a href="assets/readme/split.png"><img src="assets/readme/split.png" width="250" style="border-radius: 8px;" alt="Theme System"/></a> |
+| *Currently supporting 8 languages* | *Simple Login Interface* | *Light and dark themes, more to come* |
 
 | Admin Server Commands | Chat Rooms Management | Users Management |
 |----------------------|-----------------------|------------------|
