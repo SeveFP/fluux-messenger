@@ -65,17 +65,15 @@
 
 ## 🚀 Quick Start
 
-### 📥 Download & Install
+Get started with Fluux Messenger in a few simple steps:
 
-Download the latest release for your platform:
+1. **Download** the latest release for your platform from the [releases page](https://github.com/processone/fluux-messenger/releases/latest). Compatible with **Windows**, **macOS** and **Linux** - choose your preferred format (installer, portable, or package).
 
-| Platform | Download |
-|----------|----------|
-| Windows (x64) | [Installer (.exe)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger_x64-setup.exe) / [MSI (.msi)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger_x64_en-US.msi) |
-| macOS | [Intel (.dmg)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger_x64.dmg) / [Apple Silicon (.dmg)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger_0.11.0_aarch64.dmg) |
-| Linux (x64) | [AppImage (.AppImage)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger_amd64.AppImage) / [DEB (.deb)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger_amd64.deb) / [RPM (.rpm)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger-0.11.0-1.x86_64.rpm) |
+2. **Install** the application following your platform's standard installation process.
 
-*Links always point to the latest release version.*
+3. **Connect** to any XMPP server with your credentials and start chatting!
+
+Need help? Check out our [support options](#-support-and-community) below.
 
 ## 📚 Technology Stack
 
