@@ -385,6 +385,7 @@ export class Admin extends BaseModule {
   /**
    * Execute an ejabberd API command (api-commands/ prefix).
    * These are sent to the server domain, not a specific service.
+   * Handles multi-step commands that require form submission.
    * @param commandName - The command name (e.g., muc_online_rooms_count)
    */
   private async executeApiCommand(commandName: string): Promise<DataForm | null> {
@@ -395,6 +396,7 @@ export class Admin extends BaseModule {
     const node = `api-commands/${commandName}`
 
     try {
+      // Step 1: Execute command
       const iq = xml(
         'iq',
         { type: 'set', to: domain, id: `api_cmd_${generateUUID()}` },
@@ -406,10 +408,49 @@ export class Admin extends BaseModule {
 
       if (!command) return null
 
+      const status = command.attrs.status
       const formEl = command.getChild('x', NS_DATA_FORMS)
-      if (!formEl) return null
 
-      return parseDataForm(formEl)
+      // If completed, return the form directly
+      if (status === 'completed') {
+        return formEl ? parseDataForm(formEl) : null
+      }
+
+      // If executing (multi-step), submit the form to complete
+      if (status === 'executing' && formEl) {
+        const sessionId = command.attrs.sessionid
+        const form = parseDataForm(formEl)
+
+        // Build submit form with default values from the form
+        const submitForm = xml(
+          'x',
+          { xmlns: NS_DATA_FORMS, type: 'submit' },
+          // Include all fields with their default values
+          ...form.fields.map(field => {
+            const values = Array.isArray(field.value) ? field.value : (field.value ? [field.value] : [])
+            return xml('field', { var: field.var },
+              ...values.map((v: string) => xml('value', {}, v))
+            )
+          })
+        )
+
+        // Step 2: Complete the command with the form
+        const completeIq = xml(
+          'iq',
+          { type: 'set', to: domain, id: `api_cmd_${generateUUID()}` },
+          xml('command', { xmlns: NS_COMMANDS, node, sessionid: sessionId, action: 'complete' },
+            submitForm
+          )
+        )
+
+        const completeResult = await this.deps.sendIQ(completeIq)
+        const completeCommand = completeResult.getChild('command', NS_COMMANDS)
+        const resultFormEl = completeCommand?.getChild('x', NS_DATA_FORMS)
+
+        return resultFormEl ? parseDataForm(resultFormEl) : null
+      }
+
+      return formEl ? parseDataForm(formEl) : null
     } catch {
       return null
     }
