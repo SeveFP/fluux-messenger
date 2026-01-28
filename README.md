@@ -22,6 +22,7 @@
 - [🚀 Quick Start](#-quick-start)
 - [📚 Technology Stack](#-technology-stack)
 - [🆘 Support & Community](#-support-and-community)
+- [❓ Frequently Asked Questions](#-frequently-asked-questions)
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
 - [⭐ Star History](#-star-history)
@@ -87,11 +88,19 @@ Need help? Check out our [support options](#-support-and-community) below.
 
 ## 🆘 Support and Community
 
-We welcome all questions, feedback, and bug reports!  
+We have many ideas and exciting additions planned for Fluux Messenger! We welcome all questions, feedback, and bug reports.  
 
-- **GitHub Issues** - Use [Issues](https://github.com/processone/fluux-messenger/issues) to report bugs, request features, or track tasks. Issues are preferred for anything that needs action or official tracking. We also use Issues as a lightweight roadmap for upcoming improvements.  
-- **GitHub Discussions** - Use [Discussions](https://github.com/processone/fluux-messenger/discussions) for questions, ideas, or general conversations that don’t require formal tracking. Great for brainstorming or getting help without opening an Issue.  
+- **GitHub Issues** - Use [Issues](https://github.com/processone/fluux-messenger/issues) to report bugs, request features, or track tasks. We use Issues as our lightweight roadmap for upcoming improvements and are always open to new ideas - don't hesitate to propose yours!  
+- **GitHub Discussions** - Use [Discussions](https://github.com/processone/fluux-messenger/discussions) for questions, ideas, or general conversations that don't require formal tracking. Great for brainstorming, getting help without opening an Issue, or suggesting documentation improvements.  
 - **XMPP Chatroom** - Join [fluux-messenger@conference.process-one.net](xmpp:fluux-messenger@conference.process-one.net?join) for live chat with the community and maintainers.
+
+## ❓ Frequently Asked Questions
+
+*Have suggestions for this FAQ? Feel free to ask questions or propose additions in our [Q&A Discussions](https://github.com/processone/fluux-messenger/discussions/categories/q-a).*
+
+### Which XMPP servers are compatible with Fluux Messenger?
+
+We aim to create an XMPP client that respects standards, but currently the project has been tested **exclusively with [ejabberd](https://github.com/processone/ejabberd)**. We're eager to receive feedback on compatibility with other servers. If you test Fluux Messenger with a different XMPP server, please share your experience in the [Discussions](https://github.com/processone/fluux-messenger/discussions)!
 
 ## 🤝 Contributing
 
