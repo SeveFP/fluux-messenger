@@ -37,9 +37,9 @@ fluux-messenger/
 ├── apps/fluux/          # Desktop/web application
 │   ├── src/             # React components and hooks
 │   ├── src-tauri/       # Rust backend for Tauri
-│   └── scripts/         # Build scripts
+│   └── scripts/         # App build scripts
 ├── packages/fluux-sdk/  # Reusable XMPP SDK
-└── docs/                # Documentation
+└── scripts/             # Release scripts
 ```
 
 ## Contribution Workflow
