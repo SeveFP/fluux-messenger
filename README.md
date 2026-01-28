@@ -65,7 +65,17 @@
 
 ## 🚀 Quick Start
 
-// TODO.
+### 📥 Download & Install
+
+Download the latest release for your platform:
+
+| Platform | Download |
+|----------|----------|
+| Windows (x64) | [Installer (.exe)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger_x64-setup.exe) / [MSI (.msi)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger_x64_en-US.msi) |
+| macOS | [Intel (.dmg)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger_x64.dmg) / [Apple Silicon (.dmg)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger_0.11.0_aarch64.dmg) |
+| Linux (x64) | [AppImage (.AppImage)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger_amd64.AppImage) / [DEB (.deb)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger_amd64.deb) / [RPM (.rpm)](https://github.com/processone/fluux-messenger/releases/latest/download/Fluux.Messenger-0.11.0-1.x86_64.rpm) |
+
+*Links always point to the latest release version.*
 
 ## 📚 Technology Stack
 
