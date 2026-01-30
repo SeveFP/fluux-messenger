@@ -105,6 +105,13 @@ export function setupChatSideEffects(
 
     // Mark as initiated BEFORE any state updates
     fetchInitiated.add(conversationId)
+
+    // CRITICAL: Set loading state SYNCHRONOUSLY before starting the MAM query.
+    // This prevents a race condition where the scroll handler (checking isLoadingOlder)
+    // triggers fetchOlderHistory before the MAM event propagates through React.
+    // The MAM module will also emit mam-loading=true, but that's idempotent.
+    chatStore.getState().setMAMLoading(conversationId, true)
+
     if (debug) console.log('[SideEffects] Chat: Starting MAM fetch for', conversationId)
 
     try {
@@ -127,6 +134,8 @@ export function setupChatSideEffects(
       } else if (debug) {
         console.log('[SideEffects] Chat: MAM skipped - client disconnected')
       }
+      // Clear loading state on error (MAM module clears it on success)
+      chatStore.getState().setMAMLoading(conversationId, false)
     }
   }
 
@@ -281,6 +290,13 @@ export function setupRoomSideEffects(
 
     // Mark as initiated BEFORE any state updates
     fetchInitiated.add(roomJid)
+
+    // CRITICAL: Set loading state SYNCHRONOUSLY before starting the MAM query.
+    // This prevents a race condition where the scroll handler (checking isLoadingOlder)
+    // triggers fetchOlderHistory before the MAM event propagates through React.
+    // The MAM module will also emit room:mam-loading=true, but that's idempotent.
+    roomStore.getState().setRoomMAMLoading(roomJid, true)
+
     if (debug) console.log('[SideEffects] Room: Starting MAM catchup for', roomJid)
 
     try {
@@ -312,6 +328,8 @@ export function setupRoomSideEffects(
       } else if (debug) {
         console.log('[SideEffects] Room: MAM skipped - client disconnected')
       }
+      // Clear loading state on error (MAM module clears it on success)
+      roomStore.getState().setRoomMAMLoading(roomJid, false)
     }
   }
 
