@@ -221,8 +221,12 @@ jobs:
           # Point to pre-built binary (debian/rules will skip build)
           export FLUUX_BINARY="apps/fluux/src-tauri/target/${{ matrix.target }}/release/fluux"
 
-          # Build the .deb package
-          dpkg-buildpackage -uc -us -b
+          # Update debian/changelog version from release tag
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "1s/([^)]*)/($VERSION-1)/" debian/changelog
+
+          # Build the .deb package (-d skips build dependency check since we use pre-built binary)
+          dpkg-buildpackage -d -uc -us -b
 
           # Move .deb to a known location
           mkdir -p dist
