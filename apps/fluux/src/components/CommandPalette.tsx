@@ -538,7 +538,7 @@ export function CommandPalette({
                       className={`w-full flex items-center gap-3 px-4 py-2 text-left transition-colors
                         focus:outline-none focus-visible:!shadow-none border-l-2
                         ${isSelected
-                          ? 'bg-fluux-brand/30 text-fluux-text border-fluux-brand'
+                          ? 'bg-fluux-brand/50 text-fluux-text border-fluux-brand font-medium'
                           : `text-fluux-text border-transparent ${isKeyboardNav ? '' : 'hover:bg-fluux-hover'}`
                         }`}
                     >
