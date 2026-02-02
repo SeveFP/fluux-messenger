@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useConnection } from '@fluux/sdk'
-import { Loader2, KeyRound } from 'lucide-react'
+import { Loader2, KeyRound, Eye, EyeOff } from 'lucide-react'
 import { saveSession } from '@/hooks/useSessionPersistence'
 import { getResource } from '@/utils/xmppResource'
 import { hasSavedCredentials, getCredentials, saveCredentials, deleteCredentials } from '@/utils/keychain'
@@ -22,6 +22,8 @@ export function LoginScreen() {
   const [password, setPassword] = useState('')
   const [server, setServer] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const passwordInputRef = useRef<HTMLInputElement>(null)
   const [loadedFromKeychain, setLoadedFromKeychain] = useState(false)
   const [credentialsModified, setCredentialsModified] = useState(false)
   const [isDesktopApp, setIsDesktopApp] = useState(false)
@@ -248,20 +250,42 @@ export function LoginScreen() {
             <label htmlFor="password" className="block text-xs font-semibold text-fluux-muted uppercase mb-2">
               {t('login.passwordLabel')}
             </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => { setPassword(e.target.value); setCredentialsModified(true) }}
-              required
-              disabled={isLoading}
-              className="w-full px-3 py-2 bg-fluux-bg text-fluux-text rounded
-                         border border-fluux-border focus:border-fluux-brand
-                         focus-visible:ring-2 focus-visible:ring-fluux-brand/50
-                         placeholder:text-fluux-muted disabled:opacity-50"
-            />
+            <div className="relative">
+              <input
+                ref={passwordInputRef}
+                id="password"
+                name="password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setCredentialsModified(true) }}
+                required
+                disabled={isLoading}
+                className="w-full px-3 py-2 pr-10 bg-fluux-bg text-fluux-text rounded
+                           border border-fluux-border focus:border-fluux-brand
+                           focus-visible:ring-2 focus-visible:ring-fluux-brand/50
+                           placeholder:text-fluux-muted disabled:opacity-50"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                onClick={() => {
+                  setShowPassword(!showPassword)
+                  // Keep focus on the password input after toggling
+                  passwordInputRef.current?.focus()
+                }}
+                disabled={isLoading}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-fluux-muted hover:text-fluux-text
+                           disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+              >
+                {showPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Server Field (Optional) */}
