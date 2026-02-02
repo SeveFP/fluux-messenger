@@ -184,6 +184,7 @@ export function createDefaultStoreBindings(options: DefaultStoreBindingsOptions 
       markAllRoomsNeedsCatchUp: roomStore.getState().markAllRoomsNeedsCatchUp,
       clearRoomNeedsCatchUp: roomStore.getState().clearRoomNeedsCatchUp,
       updateLastMessagePreview: roomStore.getState().updateLastMessagePreview,
+      loadPreviewFromCache: roomStore.getState().loadPreviewFromCache,
     },
     admin: {
       setIsAdmin: adminStore.getState().setIsAdmin,
@@ -196,6 +197,8 @@ export function createDefaultStoreBindings(options: DefaultStoreBindingsOptions 
       setEntityCounts: adminStore.getState().setEntityCounts,
       setMucServiceJid: adminStore.getState().setMucServiceJid,
       getMucServiceJid: () => adminStore.getState().mucServiceJid,
+      setMucServiceSupportsMAM: adminStore.getState().setMucServiceSupportsMAM,
+      getMucServiceSupportsMAM: () => adminStore.getState().mucServiceSupportsMAM,
       // Vhost management
       setVhosts: adminStore.getState().setVhosts,
       setSelectedVhost: adminStore.getState().setSelectedVhost,

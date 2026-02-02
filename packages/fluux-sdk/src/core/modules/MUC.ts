@@ -82,6 +82,9 @@ const JOIN_TIMEOUT_MS = 30000
 /** Maximum number of join retry attempts */
 const MAX_JOIN_RETRIES = 1
 
+/** Timeout for disco#info queries to rooms (in milliseconds) */
+const DISCO_QUERY_TIMEOUT_MS = 10000
+
 /**
  * Pending join info for timeout tracking
  */
@@ -366,6 +369,7 @@ export class MUC extends BaseModule {
     // but skip MAM since quickchats are transient
     const roomFeatures = await this.queryRoomFeatures(roomJid)
     const supportsMAM = isQuickChat ? false : (roomFeatures?.supportsMAM ?? false)
+    const isServiceLevelMAMFallback = roomFeatures?.isServiceLevelFallback ?? false
     const roomName = roomFeatures?.name || existingRoom?.name || getLocalPart(roomJid)
 
     if (!existingRoom) {
@@ -406,9 +410,21 @@ export class MUC extends BaseModule {
 
     const xChildren: (Element | undefined)[] = []
 
-    // Request history: if MAM is supported, request 0 messages since MAM provides history
-    // Otherwise use the provided maxHistory (default 50)
-    const maxHistory = supportsMAM ? 0 : (options?.maxHistory ?? 50)
+    // Request history based on MAM support:
+    // - Room-level MAM confirmed: request 0 (MAM provides full history)
+    // - Service-level MAM fallback: request 10 (safety net - room might not have MAM enabled)
+    // - No MAM: request 50 (default, or custom maxHistory)
+    let maxHistory: number
+    if (supportsMAM && !isServiceLevelMAMFallback) {
+      // Room definitely supports MAM
+      maxHistory = 0
+    } else if (isServiceLevelMAMFallback) {
+      // Service supports MAM but room-level unknown - request some history as fallback
+      maxHistory = options?.maxHistory ?? 10
+    } else {
+      // No MAM support - request full history
+      maxHistory = options?.maxHistory ?? 50
+    }
     xChildren.push(xml('history', { maxstanzas: maxHistory.toString() }))
 
     if (options?.password) {
@@ -629,6 +645,16 @@ export class MUC extends BaseModule {
         )
 
         if (identity) {
+          // Check if the MUC service supports MAM globally (XEP-0313)
+          // This is useful as a fallback when individual room disco fails
+          const features = infoQuery?.getChildren('feature')
+            .map((f: Element) => f.attrs.var as string)
+            .filter(Boolean) ?? []
+          const serviceSupportsMAM = features.includes(NS_MAM)
+
+          // Emit service-level MAM support for use as fallback
+          this.deps.emitSDK('admin:muc-service-mam', { supportsMAM: serviceSupportsMAM })
+
           return jid
         }
       }
@@ -661,8 +687,9 @@ export class MUC extends BaseModule {
    * - Called automatically by joinRoom() to determine history strategy
    * - If MAM is supported, joinRoom() requests 0 MUC history messages
    *   since MAM provides a more reliable and complete archive
+   * - Has a 10-second timeout to prevent hanging if remote server doesn't respond
    */
-  async queryRoomFeatures(roomJid: string): Promise<{ supportsMAM: boolean; name?: string } | null> {
+  async queryRoomFeatures(roomJid: string): Promise<{ supportsMAM: boolean; name?: string; isServiceLevelFallback?: boolean } | null> {
     try {
       const iq = xml(
         'iq',
@@ -670,7 +697,16 @@ export class MUC extends BaseModule {
         xml('query', { xmlns: NS_DISCO_INFO })
       )
 
-      const response = await this.deps.sendIQ(iq)
+      // Wrap sendIQ with a timeout to prevent hanging if remote server doesn't respond
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`Disco query timeout for ${roomJid}`)), DISCO_QUERY_TIMEOUT_MS)
+      })
+
+      const response = await Promise.race([
+        this.deps.sendIQ(iq),
+        timeoutPromise,
+      ])
+
       const query = response.getChild('query', NS_DISCO_INFO)
       if (!query) return null
 
@@ -690,8 +726,19 @@ export class MUC extends BaseModule {
       return { supportsMAM, name }
     } catch (err) {
       // Room disco#info not available - that's fine, room may not exist yet
-      // or may not support disco queries
+      // or may not support disco queries, or the query timed out
       console.warn(`[MUC] Failed to query room features for ${roomJid}:`, err)
+
+      // Fallback: check if MUC service supports MAM globally (e.g., Prosody with mod_muc_mam)
+      // This covers cases where room disco is slow/unreachable but the service advertises MAM
+      // Note: service-level MAM doesn't guarantee this specific room has MAM enabled
+      // (e.g., ejabberd with per-room MAM), so we mark it as a fallback
+      const serviceSupportsMAM = this.deps.stores?.admin.getMucServiceSupportsMAM?.()
+      if (serviceSupportsMAM) {
+        console.log(`[MUC] Using service-level MAM support for ${roomJid}`)
+        return { supportsMAM: true, isServiceLevelFallback: true }
+      }
+
       return null
     }
   }

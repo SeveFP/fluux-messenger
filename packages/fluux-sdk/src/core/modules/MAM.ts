@@ -26,6 +26,7 @@ import { xml, Element } from '@xmpp/client'
 import { BaseModule } from './BaseModule'
 import { getBareJid, getResource } from '../jid'
 import { generateUUID } from '../../utils/uuid'
+import { executeWithConcurrency } from '../../utils/concurrencyUtils'
 import { parseRSMResponse } from '../../utils/rsm'
 import {
   NS_MAM,
@@ -474,41 +475,13 @@ export class MAM extends BaseModule {
       category: 'sm',
     })
 
-    // Process in batches to avoid overwhelming the server
-    const conversationIds = conversations.map(c => c.id)
+    const conversationIds = conversations.map((c) => c.id)
 
-    // Simple throttled execution with concurrency limit
-    const results: Promise<void>[] = []
-    let activeCount = 0
-    let index = 0
-
-    const processNext = async (): Promise<void> => {
-      while (index < conversationIds.length) {
-        if (activeCount >= concurrency) {
-          // Wait a bit before checking again
-          await new Promise(resolve => setTimeout(resolve, 50))
-          continue
-        }
-
-        const conversationId = conversationIds[index++]
-        activeCount++
-
-        // Don't await - let it run in parallel
-        this.fetchPreviewForConversation(conversationId).finally(() => {
-          activeCount--
-        })
-      }
-    }
-
-    // Start the processing
-    await processNext()
-
-    // Wait for all in-flight requests to complete
-    while (activeCount > 0) {
-      await new Promise(resolve => setTimeout(resolve, 50))
-    }
-
-    await Promise.allSettled(results)
+    await executeWithConcurrency(
+      conversationIds,
+      (conversationId) => this.fetchPreviewForConversation(conversationId),
+      concurrency
+    )
   }
 
   /**
@@ -565,42 +538,34 @@ export class MAM extends BaseModule {
    */
   async refreshRoomPreviews(options: { concurrency?: number } = {}): Promise<void> {
     const { concurrency = 3 } = options
-    // Get joined rooms that support MAM
+    // Get all joined rooms (skip QuickChat rooms)
     const joinedRooms = this.deps.stores?.room.joinedRooms() || []
-    const mamRooms = joinedRooms.filter(r => r.supportsMAM && !r.isQuickChat)
-    if (mamRooms.length === 0) return
+    const nonQuickChatRooms = joinedRooms.filter((r) => !r.isQuickChat)
+    if (nonQuickChatRooms.length === 0) return
+
+    // Separate rooms by MAM support
+    const mamRooms = nonQuickChatRooms.filter((r) => r.supportsMAM)
+    const nonMamRooms = nonQuickChatRooms.filter((r) => !r.supportsMAM)
 
     this.deps.emitSDK('console:event', {
-      message: `Refreshing previews for ${mamRooms.length} room(s)`,
+      message: `Refreshing previews for ${mamRooms.length} MAM room(s), ${nonMamRooms.length} non-MAM room(s)`,
       category: 'sm',
     })
 
-    // Simple throttled execution with concurrency limit
-    const roomJids = mamRooms.map(r => r.jid)
-    let activeCount = 0
-    let index = 0
+    // For MAM rooms: fetch preview via MAM query
+    const mamRoomJids = mamRooms.map((r) => r.jid)
+    await executeWithConcurrency(
+      mamRoomJids,
+      (roomJid) => this.fetchPreviewForRoom(roomJid),
+      concurrency
+    )
 
-    const processNext = async (): Promise<void> => {
-      while (index < roomJids.length) {
-        if (activeCount >= concurrency) {
-          await new Promise(resolve => setTimeout(resolve, 50))
-          continue
-        }
-
-        const roomJid = roomJids[index++]
-        activeCount++
-
-        this.fetchPreviewForRoom(roomJid).finally(() => {
-          activeCount--
-        })
+    // For non-MAM rooms: load preview from cache to populate lastMessage
+    // This only updates lastMessage without modifying the messages array
+    for (const room of nonMamRooms) {
+      if (!room.lastMessage) {
+        await this.deps.stores?.room.loadPreviewFromCache(room.jid)
       }
-    }
-
-    await processNext()
-
-    // Wait for all in-flight requests to complete
-    while (activeCount > 0) {
-      await new Promise(resolve => setTimeout(resolve, 50))
     }
   }
 
@@ -622,9 +587,10 @@ export class MAM extends BaseModule {
         xml('field', { var: 'FORM_TYPE', type: 'hidden' }, xml('value', {}, NS_MAM)),
       ]
 
-      // Query with max=5 to find a displayable message (reactions/corrections are skipped)
-      // This handles the case where recent messages are modifications that can't be previewed
-      const iq = this.buildMAMQuery(queryId, formFields, 5, '', roomJid)
+      // Query with max=30 to find a displayable message (reactions/corrections/markers are skipped)
+      // High-traffic rooms may have many non-displayable messages (reactions, read markers, etc.)
+      // so we request more to increase the chance of finding a message with actual body text
+      const iq = this.buildMAMQuery(queryId, formFields, 30, '', roomJid)
 
       const room = this.deps.stores?.room.getRoom(roomJid)
       const myNickname = room?.nickname || ''

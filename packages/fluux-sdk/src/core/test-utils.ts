@@ -661,6 +661,7 @@ export const createMockStores = (): MockStoreBindings => ({
     markAllRoomsNeedsCatchUp: vi.fn(),
     clearRoomNeedsCatchUp: vi.fn(),
     updateLastMessagePreview: vi.fn(),
+    loadPreviewFromCache: vi.fn().mockResolvedValue(null),
   },
   admin: {
     setIsAdmin: vi.fn(),
@@ -673,6 +674,8 @@ export const createMockStores = (): MockStoreBindings => ({
     setEntityCounts: vi.fn(),
     setMucServiceJid: vi.fn(),
     getMucServiceJid: vi.fn().mockReturnValue(null),
+    setMucServiceSupportsMAM: vi.fn(),
+    getMucServiceSupportsMAM: vi.fn().mockReturnValue(null),
     setVhosts: vi.fn(),
     setSelectedVhost: vi.fn(),
     selectedVhost: null,

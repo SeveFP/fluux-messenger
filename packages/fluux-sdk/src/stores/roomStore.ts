@@ -19,6 +19,7 @@ import * as mamState from './shared/mamState'
 import type { MAMQueryDirection } from './shared/mamState'
 import * as draftState from './shared/draftState'
 import { buildMessageKeySet, isMessageDuplicate, sortMessagesByTimestamp, trimMessages, prependOlderMessages, mergeAndProcessMessages } from './shared/messageArrayUtils'
+import { shouldUpdateLastMessage } from './shared/lastMessageUtils'
 import { connectionStore } from './connectionStore'
 
 /**
@@ -179,6 +180,8 @@ export interface RoomState {
   // IndexedDB cache loading
   loadMessagesFromCache: (roomJid: string, options?: GetMessagesOptions) => Promise<RoomMessage[]>
   loadOlderMessagesFromCache: (roomJid: string, limit?: number) => Promise<RoomMessage[]>
+  /** Load only the latest message from cache for sidebar preview (doesn't modify messages array) */
+  loadPreviewFromCache: (roomJid: string) => Promise<RoomMessage | null>
 
   // MAM state management (XEP-0313 for MUC rooms)
   setRoomMAMLoading: (roomJid: string, isLoading: boolean) => void
@@ -398,11 +401,12 @@ export const roomStore = createStore<RoomState>()(
       const existing = newRooms.get(roomJid)
       if (!existing) return state
 
-      // When joining, set lastInteractedAt to last message timestamp (or now)
-      // This ensures proper sidebar sorting from client launch/autojoin
+      // When joining, set lastInteractedAt to last message timestamp (if available)
+      // DON'T fall back to new Date() - that would make all autojoined rooms sort to top
+      // Instead, leave it undefined so sorting falls back to lastMessage.timestamp from MAM
       const lastMessage = existing.messages?.[existing.messages.length - 1]
       const newLastInteractedAt = joined
-        ? (lastMessage?.timestamp ?? new Date())
+        ? (lastMessage?.timestamp ?? existing.lastInteractedAt) // Keep existing or undefined
         : existing.lastInteractedAt // Preserve on leave
 
       const updatedRoom = {
@@ -834,8 +838,13 @@ export const roomStore = createStore<RoomState>()(
       // Determine lastInteractedAt: use last message timestamp to position room correctly
       // This implements "Conversations-style" sorting: rooms sort by last message time,
       // but only update their position when the user reads them (not when messages arrive)
+      // Prioritize room.lastMessage (sidebar preview from MAM) over room.messages (live messages)
+      // This ensures sorting matches what's shown in the sidebar, not transient live messages
       const lastMessage = room?.messages?.[room.messages.length - 1]
-      const newLastInteractedAt = lastMessage?.timestamp ?? new Date()
+      const lastMessageTimestamp = room?.lastMessage?.timestamp ?? lastMessage?.timestamp
+      // If no messages yet (e.g., room still loading), preserve existing lastInteractedAt
+      // or leave undefined - don't use new Date() which would make it jump to top
+      const newLastInteractedAt = lastMessageTimestamp ?? room?.lastInteractedAt
 
       if (room && lastReadAt) {
         // Find first message that is:
@@ -1272,6 +1281,57 @@ export const roomStore = createStore<RoomState>()(
     }
   },
 
+  // Load only the latest message from cache for sidebar preview
+  // This doesn't modify the messages array - it only updates lastMessage
+  loadPreviewFromCache: async (roomJid) => {
+    if (!messageCache.isMessageCacheAvailable()) {
+      return null
+    }
+
+    // Check if room exists first - no point querying cache for non-existent rooms
+    const room = get().rooms.get(roomJid)
+    if (!room) {
+      return null
+    }
+
+    try {
+      // Query for just the latest message
+      const cachedMessages = await messageCache.getRoomMessages(roomJid, {
+        limit: 1,
+        latest: true,
+      })
+
+      if (cachedMessages.length > 0) {
+        const latestMessage = cachedMessages[0]
+
+        // Update only lastMessage in metadata and combined room
+        set((state) => {
+          const room = state.rooms.get(roomJid)
+          const meta = state.roomMeta.get(roomJid)
+          if (!room || !meta) return state
+
+          // Only update if we don't already have a lastMessage or if cached is newer
+          if (!shouldUpdateLastMessage(meta.lastMessage, latestMessage)) return state
+
+          const newMeta = new Map(state.roomMeta)
+          newMeta.set(roomJid, { ...meta, lastMessage: latestMessage })
+
+          const newRooms = new Map(state.rooms)
+          newRooms.set(roomJid, { ...room, lastMessage: latestMessage })
+
+          return { roomMeta: newMeta, rooms: newRooms }
+        })
+
+        return latestMessage
+      }
+
+      return null
+    } catch (error) {
+      console.error('Failed to load room preview from IndexedDB:', error)
+      return null
+    }
+  },
+
   // MAM state management (XEP-0313 for MUC rooms)
   setRoomMAMLoading: (roomJid, isLoading) => {
     set((state) => ({
@@ -1389,9 +1449,7 @@ export const roomStore = createStore<RoomState>()(
       if (!room || !meta) return state
 
       // Only update if this message is newer than existing lastMessage
-      const existingTime = meta.lastMessage?.timestamp?.getTime() ?? 0
-      const newTime = lastMessage.timestamp?.getTime() ?? 0
-      if (newTime <= existingTime) return state
+      if (!shouldUpdateLastMessage(meta.lastMessage, lastMessage)) return state
 
       // Update metadata map
       const newMeta = new Map(state.roomMeta)
