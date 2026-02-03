@@ -24,7 +24,13 @@ const initialState: UpdateState = {
   error: null,
 }
 
-export function useAutoUpdate() {
+interface UseAutoUpdateOptions {
+  /** Whether to automatically check for updates on mount. Default: false */
+  autoCheck?: boolean
+}
+
+export function useAutoUpdate(options: UseAutoUpdateOptions = {}) {
+  const { autoCheck = false } = options
   const [state, setState] = useState<UpdateState>(initialState)
   const [update, setUpdate] = useState<Awaited<ReturnType<typeof import('@tauri-apps/plugin-updater').check>> | null>(null)
 
@@ -129,14 +135,14 @@ export function useAutoUpdate() {
     setUpdate(null)
   }, [])
 
-  // Check for updates on mount (app launch)
+  // Check for updates on mount (only when autoCheck is enabled, typically at app launch)
   useEffect(() => {
-    if (isTauri) {
+    if (isTauri && autoCheck) {
       // Delay check slightly to not block app startup
       const timer = setTimeout(checkForUpdate, 2000)
       return () => clearTimeout(timer)
     }
-  }, [checkForUpdate])
+  }, [checkForUpdate, autoCheck])
 
   return {
     ...state,

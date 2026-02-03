@@ -39,7 +39,7 @@ function App() {
   detectRenderLoop('App')
 
   const { status } = useConnection()
-  const update = useAutoUpdate()
+  const update = useAutoUpdate({ autoCheck: true })
 
   // Track if we've shown the update modal this session (don't show again after dismiss)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
