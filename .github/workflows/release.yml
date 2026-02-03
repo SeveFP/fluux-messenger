@@ -4,6 +4,16 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v0.11.3)'
+        required: true
+        type: string
+
+env:
+  # Use input tag for workflow_dispatch, or ref_name for push events
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   build-macos:
@@ -24,6 +34,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -74,8 +86,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/fluux
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Fluux Messenger ${{ github.ref_name }}'
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: 'Fluux Messenger ${{ env.RELEASE_TAG }}'
           releaseBody: ${{ steps.release_notes.outputs.notes }}
           releaseDraft: false
           prerelease: false
@@ -90,6 +102,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -132,8 +146,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/fluux
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Fluux Messenger ${{ github.ref_name }}'
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: 'Fluux Messenger ${{ env.RELEASE_TAG }}'
           releaseBody: ${{ steps.release_notes.outputs.notes }}
           releaseDraft: false
           prerelease: false
@@ -160,6 +174,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Linux dependencies
         run: |
@@ -224,7 +240,7 @@ jobs:
           export FLUUX_BINARY="apps/fluux/src-tauri/target/release/fluux"
 
           # Update debian/changelog version from release tag
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${RELEASE_TAG#v}"
           sed -i "1s/([^)]*)/($VERSION-1)/" debian/changelog
 
           # Build the .deb package (-d skips build dependency check since we use pre-built binary)
@@ -238,7 +254,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: dist/*.deb
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ env.RELEASE_TAG }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -262,6 +278,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Linux dependencies
         run: |
@@ -316,8 +334,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/fluux
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Fluux Messenger ${{ github.ref_name }}'
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: 'Fluux Messenger ${{ env.RELEASE_TAG }}'
           releaseBody: ${{ steps.release_notes.outputs.notes }}
           releaseDraft: false
           prerelease: false
@@ -334,6 +352,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -341,6 +361,6 @@ jobs:
           node-version: '20'
 
       - name: Rename assets and update latest.json
-        run: node scripts/rename-release-assets.js ${{ github.ref_name }}
+        run: node scripts/rename-release-assets.js ${{ env.RELEASE_TAG }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
