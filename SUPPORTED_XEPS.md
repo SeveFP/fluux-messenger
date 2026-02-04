@@ -11,6 +11,7 @@ This document lists the XMPP Extension Protocols (XEPs) and related RFCs impleme
 | [RFC 7622](https://datatracker.ietf.org/doc/html/rfc7622) | XMPP Address Format | ✅ Implemented | JID parsing and validation |
 | [RFC 7395](https://datatracker.ietf.org/doc/html/rfc7395) | XMPP over WebSocket | ✅ Implemented | WebSocket transport for browser connectivity |
 | [RFC 5122](https://datatracker.ietf.org/doc/html/rfc5122) | XMPP URI Scheme | ✅ Implemented | Deep linking support for `xmpp:` URIs - opens conversations and joins rooms from external links |
+| [RFC 7590](https://datatracker.ietf.org/doc/html/rfc7590) | Use of TLS in XMPP | ✅ Implemented | All connections use WSS (TLS-encrypted WebSocket) and HTTPS for XEP-0156 discovery |
 
 ## Connection & Stream
 
@@ -59,6 +60,7 @@ This document lists the XMPP Extension Protocols (XEPs) and related RFCs impleme
 | [XEP-0424](https://xmpp.org/extensions/xep-0424.html) | Message Retraction | ✅ Implemented | Delete own messages with sender verification |
 | [XEP-0363](https://xmpp.org/extensions/xep-0363.html) | HTTP File Upload | ✅ Implemented | File upload with drag-and-drop, progress indicator, automatic service discovery |
 | [XEP-0066](https://xmpp.org/extensions/xep-0066.html) | Out of Band Data | ✅ Implemented | File URL sharing with thumbnails |
+| [XEP-0245](https://xmpp.org/extensions/xep-0245.html) | The /me Command | ✅ Implemented | Action messages displayed in italic with sender name |
 | [XEP-0264](https://xmpp.org/extensions/xep-0264.html) | Jingle Content Thumbnails | ✅ Implemented | Image preview thumbnails for file uploads |
 | [XEP-0446](https://xmpp.org/extensions/xep-0446.html) | File Metadata Element | ✅ Implemented | Original image/video dimensions for proper layout reservation |
 | [XEP-0422](https://xmpp.org/extensions/xep-0422.html) | Message Fastening | ✅ Implemented | Link previews with OGP metadata attached to messages |
@@ -71,6 +73,8 @@ This document lists the XMPP Extension Protocols (XEPs) and related RFCs impleme
 
 | XEP | Name | Status | Notes |
 |-----|------|--------|-------|
+| [XEP-0060](https://xmpp.org/extensions/xep-0060.html) | Publish-Subscribe | ✅ Implemented | PubSub event handling for avatars, nicknames, bookmarks, and settings |
+| [XEP-0163](https://xmpp.org/extensions/xep-0163.html) | Personal Eventing Protocol | ✅ Implemented | PEP notifications for avatars (XEP-0084), nicknames (XEP-0172), bookmarks (XEP-0402), appearance settings (XEP-0223) |
 | [XEP-0223](https://xmpp.org/extensions/xep-0223.html) | Persistent Storage of Private Data via PubSub | ✅ Implemented | Theme/appearance settings sync across devices |
 
 ## Multi-User Chat (MUC)

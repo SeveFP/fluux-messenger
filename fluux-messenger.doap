@@ -22,6 +22,8 @@
 
     <license rdf:resource="https://www.gnu.org/licenses/agpl-3.0.html"/>
 
+    <schema:logo rdf:resource="https://raw.githubusercontent.com/processone/fluux-messenger/main/apps/fluux/public/logo.png"/>
+
     <programming-language>TypeScript</programming-language>
     <programming-language>Rust</programming-language>
 
@@ -45,6 +47,7 @@
     <implements rdf:resource="https://xmpp.org/rfcs/rfc7622.html"/>
     <implements rdf:resource="https://xmpp.org/rfcs/rfc7395.html"/>
     <implements rdf:resource="https://xmpp.org/rfcs/rfc5122.html"/>
+    <implements rdf:resource="https://xmpp.org/rfcs/rfc7590.html"/>
 
     <!-- XEP-0004: Data Forms -->
     <implements>
@@ -87,6 +90,15 @@
         <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0054.html"/>
         <xmpp:status>partial</xmpp:status>
         <xmpp:note>Room avatar retrieval and display</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0060: Publish-Subscribe -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0060.html"/>
+        <xmpp:status>partial</xmpp:status>
+        <xmpp:note>PubSub event handling for avatars, nicknames, bookmarks, and settings</xmpp:note>
       </xmpp:SupportedXep>
     </implements>
 
@@ -162,6 +174,15 @@
       </xmpp:SupportedXep>
     </implements>
 
+    <!-- XEP-0163: Personal Eventing Protocol -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0163.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>PEP notifications for avatars (XEP-0084), nicknames (XEP-0172), bookmarks (XEP-0402), appearance settings (XEP-0223)</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
     <!-- XEP-0156: Discovering Alternative XMPP Connection Methods -->
     <implements>
       <xmpp:SupportedXep>
@@ -222,6 +243,15 @@
         <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0223.html"/>
         <xmpp:status>complete</xmpp:status>
         <xmpp:note>Theme/appearance settings sync across devices</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0245: The /me Command -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0245.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Action messages displayed in italic with sender name</xmpp:note>
       </xmpp:SupportedXep>
     </implements>
 
