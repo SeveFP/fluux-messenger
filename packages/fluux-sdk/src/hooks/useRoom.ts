@@ -106,19 +106,17 @@ export function useRoom() {
   const activeMessages = useRoomStore((s) => s.activeMessages())
   const setActiveRoomRaw = useRoomStore((s) => s.setActiveRoom)
 
-  // Wrapper that loads messages from IndexedDB cache when switching rooms
-  // Uses latest: true to get most recent messages and avoid showing old messages first
+  // Wrapper that loads messages from IndexedDB cache when switching rooms.
+  // Cache is loaded BEFORE setting active room so that setActiveRoom() in the store
+  // calculates firstNewMessageId with the full message history (cached + live messages).
+  // Without this, rooms that only have live messages (received while viewing another room)
+  // would show only new messages without historical context above the marker.
   const setActiveRoom = useCallback(async (roomJid: string | null) => {
-    setActiveRoomRaw(roomJid)
-
-    // Load latest messages from IndexedDB cache when switching to a room
     if (roomJid) {
-      const existingMessages = roomStore.getState().rooms.get(roomJid)?.messages
-      // Only load from cache if we don't have messages in memory
-      if (!existingMessages || existingMessages.length === 0) {
-        await roomStore.getState().loadMessagesFromCache(roomJid, { limit: 100 })
-      }
+      // Always load from cache first - deduplication is handled by loadMessagesFromCache
+      await roomStore.getState().loadMessagesFromCache(roomJid, { limit: 100 })
     }
+    setActiveRoomRaw(roomJid)
   }, [setActiveRoomRaw])
   const markAsRead = useRoomStore((s) => s.markAsRead)
   const clearFirstNewMessageId = useRoomStore((s) => s.clearFirstNewMessageId)

@@ -424,6 +424,124 @@ describe('useChat hook', () => {
     })
   })
 
+  describe('setActiveConversation cache loading', () => {
+    it('should load cache before setting active conversation (regression: firstNewMessageId needs full history)', async () => {
+      // Regression test for bug where opening a conversation with only live messages
+      // showed no historical context above the "new messages" marker.
+      // The fix: load cache BEFORE calling setActiveConversation in the store,
+      // so firstNewMessageId is calculated with the full message history.
+      const { result } = renderHook(() => useChat(), { wrapper })
+
+      act(() => {
+        chatStore.getState().addConversation({
+          id: 'alice@example.com',
+          name: 'Alice',
+          type: 'chat',
+          unreadCount: 1,
+        })
+        chatStore.getState().addMessage('alice@example.com', {
+          type: 'chat',
+          id: 'live-msg-1',
+          from: 'alice@example.com',
+          to: 'me@example.com',
+          body: 'New live message',
+          timestamp: new Date('2026-02-04T12:00:00Z'),
+          isOutgoing: false,
+        })
+      })
+
+      // Replace loadMessagesFromCache on the store to record activeConversationId at call time.
+      // Must use setState() because Zustand creates new state objects on set(), so
+      // vi.spyOn on a previous getState() reference won't intercept future calls.
+      const originalLoad = chatStore.getState().loadMessagesFromCache
+      let activeIdDuringCacheLoad: string | null | undefined = undefined
+      let loadCallCount = 0
+      chatStore.setState({
+        loadMessagesFromCache: async (id: string, options?: { limit?: number }) => {
+          if (loadCallCount === 0) {
+            activeIdDuringCacheLoad = chatStore.getState().activeConversationId
+          }
+          loadCallCount++
+          return originalLoad(id, options)
+        },
+      })
+
+      await act(async () => {
+        await result.current.setActiveConversation('alice@example.com')
+      })
+
+      // Cache was loaded while active conversation was still null → correct ordering
+      expect(activeIdDuringCacheLoad).toBeNull()
+      expect(loadCallCount).toBeGreaterThanOrEqual(1)
+
+      chatStore.setState({ loadMessagesFromCache: originalLoad })
+    })
+
+    it('should always load cache even when conversation has messages', async () => {
+      // Regression test: cache loading must not be skipped when messages exist.
+      // Previously, conversations with live messages in memory would skip cache
+      // loading, leaving only new messages visible without historical context.
+      const { result } = renderHook(() => useChat(), { wrapper })
+
+      act(() => {
+        chatStore.getState().addConversation({
+          id: 'alice@example.com',
+          name: 'Alice',
+          type: 'chat',
+          unreadCount: 0,
+        })
+        chatStore.getState().addMessage('alice@example.com', {
+          type: 'chat',
+          id: 'msg-1',
+          from: 'alice@example.com',
+          to: 'me@example.com',
+          body: 'Existing message',
+          timestamp: new Date(),
+          isOutgoing: false,
+        })
+      })
+
+      const originalLoad = chatStore.getState().loadMessagesFromCache
+      let cacheLoadId: string | null = null
+      chatStore.setState({
+        loadMessagesFromCache: async (id: string, options?: { limit?: number }) => {
+          cacheLoadId = id
+          return originalLoad(id, options)
+        },
+      })
+
+      await act(async () => {
+        await result.current.setActiveConversation('alice@example.com')
+      })
+
+      // Cache should be loaded regardless of existing messages
+      expect(cacheLoadId).toBe('alice@example.com')
+
+      chatStore.setState({ loadMessagesFromCache: originalLoad })
+    })
+
+    it('should not load cache when setting active conversation to null', async () => {
+      const { result } = renderHook(() => useChat(), { wrapper })
+
+      const originalLoad = chatStore.getState().loadMessagesFromCache
+      let cacheLoadCalled = false
+      chatStore.setState({
+        loadMessagesFromCache: async (id: string, options?: { limit?: number }) => {
+          cacheLoadCalled = true
+          return originalLoad(id, options)
+        },
+      })
+
+      await act(async () => {
+        await result.current.setActiveConversation(null)
+      })
+
+      expect(cacheLoadCalled).toBe(false)
+
+      chatStore.setState({ loadMessagesFromCache: originalLoad })
+    })
+  })
+
   describe('conversation updates', () => {
     it('should update conversation lastMessage when message is added', () => {
       const { result } = renderHook(() => useChat(), { wrapper })

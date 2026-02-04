@@ -165,12 +165,10 @@ export function setupChatSideEffects(
 
       // Run async operations outside the synchronous subscriber
       void (async () => {
-        // Step 1: Load from IndexedDB cache immediately
-        const existingMessages = chatStore.getState().messages.get(activeConversationId)
-        if (!existingMessages || existingMessages.length === 0) {
-          if (debug) console.log('[SideEffects] Chat: Loading from cache')
-          await chatStore.getState().loadMessagesFromCache(activeConversationId, { limit: 100 })
-        }
+        // Step 1: Always load from IndexedDB cache (deduplication is handled by loadMessagesFromCache).
+        // This is a fallback for cases where the hook's cache load didn't run (e.g., reconnection).
+        if (debug) console.log('[SideEffects] Chat: Loading from cache')
+        await chatStore.getState().loadMessagesFromCache(activeConversationId, { limit: 100 })
 
         // Step 2: Background MAM fetch (skip if already initiated this session)
         if (fetchInitiated.has(activeConversationId)) {
@@ -370,12 +368,10 @@ export function setupRoomSideEffects(
 
       // Run async operations outside the synchronous subscriber
       void (async () => {
-        // Step 1: Load from IndexedDB cache immediately
-        const existingMessages = roomStore.getState().rooms.get(activeRoomJid)?.messages
-        if (!existingMessages || existingMessages.length === 0) {
-          if (debug) console.log('[SideEffects] Room: Loading from cache')
-          await roomStore.getState().loadMessagesFromCache(activeRoomJid, { limit: 100 })
-        }
+        // Step 1: Always load from IndexedDB cache (deduplication is handled by loadMessagesFromCache).
+        // This is a fallback for cases where the hook's cache load didn't run (e.g., reconnection).
+        if (debug) console.log('[SideEffects] Room: Loading from cache')
+        await roomStore.getState().loadMessagesFromCache(activeRoomJid, { limit: 100 })
 
         // Step 2: Background MAM fetch for catchup (skip if already initiated this session)
         if (fetchInitiated.has(activeRoomJid)) {

@@ -320,18 +320,96 @@ describe('useRoom hook', () => {
   })
 
   describe('setActiveRoom', () => {
-    it('should set the active room', () => {
+    it('should set the active room', async () => {
       const { result } = renderHook(() => useRoom(), { wrapper })
 
       act(() => {
         roomStore.getState().addRoom(createRoom('test@conference.example.com', { joined: true }))
       })
 
-      act(() => {
-        result.current.setActiveRoom('test@conference.example.com')
+      await act(async () => {
+        await result.current.setActiveRoom('test@conference.example.com')
       })
 
       expect(result.current.activeRoomJid).toBe('test@conference.example.com')
+    })
+
+    it('should load cache before setting active room (regression: firstNewMessageId needs full history)', async () => {
+      // Regression test for bug where opening a room with only live messages
+      // showed no historical context above the "new messages" marker.
+      // The fix: load cache BEFORE calling setActiveRoom in the store,
+      // so firstNewMessageId is calculated with the full message history.
+      const { result } = renderHook(() => useRoom(), { wrapper })
+
+      const liveMessage = createMessage('live-1', 'test@conference.example.com', 'alice', 'New message')
+      act(() => {
+        roomStore.getState().addRoom(createRoom('test@conference.example.com', {
+          joined: true,
+          messages: [liveMessage],
+          unreadCount: 1,
+        }))
+      })
+
+      // Replace loadMessagesFromCache on the store to record activeRoomJid at call time.
+      // Must use setState() because Zustand creates new state objects on set(), so
+      // vi.spyOn on a previous getState() reference won't intercept future calls.
+      const originalLoad = roomStore.getState().loadMessagesFromCache
+      let activeRoomDuringCacheLoad: string | null | undefined = undefined
+      let loadCallCount = 0
+      roomStore.setState({
+        loadMessagesFromCache: async (roomJid: string, options?: { limit?: number }) => {
+          if (loadCallCount === 0) {
+            // Record state at the time of the FIRST cache load (from the hook)
+            activeRoomDuringCacheLoad = roomStore.getState().activeRoomJid
+          }
+          loadCallCount++
+          return originalLoad(roomJid, options)
+        },
+      })
+
+      await act(async () => {
+        await result.current.setActiveRoom('test@conference.example.com')
+      })
+
+      // Cache was loaded while active room was still null → correct ordering
+      expect(activeRoomDuringCacheLoad).toBeNull()
+      expect(loadCallCount).toBeGreaterThanOrEqual(1)
+
+      // Restore original
+      roomStore.setState({ loadMessagesFromCache: originalLoad })
+    })
+
+    it('should always load cache even when room has messages', async () => {
+      // Regression test: cache loading must not be skipped when messages exist.
+      // Previously, rooms with live messages in memory would skip cache loading,
+      // leaving only new messages visible without historical context.
+      const { result } = renderHook(() => useRoom(), { wrapper })
+
+      const existingMessage = createMessage('msg-1', 'test@conference.example.com', 'bob', 'Existing')
+      act(() => {
+        roomStore.getState().addRoom(createRoom('test@conference.example.com', {
+          joined: true,
+          messages: [existingMessage],
+        }))
+      })
+
+      const originalLoad = roomStore.getState().loadMessagesFromCache
+      let cacheLoadRoomJid: string | null = null
+      roomStore.setState({
+        loadMessagesFromCache: async (roomJid: string, options?: { limit?: number }) => {
+          cacheLoadRoomJid = roomJid
+          return originalLoad(roomJid, options)
+        },
+      })
+
+      await act(async () => {
+        await result.current.setActiveRoom('test@conference.example.com')
+      })
+
+      // Cache should be loaded regardless of existing messages
+      expect(cacheLoadRoomJid).toBe('test@conference.example.com')
+
+      roomStore.setState({ loadMessagesFromCache: originalLoad })
     })
 
     it('should clear active room when passed null', () => {

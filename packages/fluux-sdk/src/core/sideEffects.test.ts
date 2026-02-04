@@ -310,6 +310,57 @@ describe('sideEffects', () => {
       })
     })
 
+    describe('cache loading with existing messages', () => {
+      it('should load from cache even when room already has live messages in memory', async () => {
+        // Regression test: When a room receives live messages while the user views
+        // another room, those live messages are the only messages in memory.
+        // Cache loading must NOT be skipped just because messages exist.
+        connectionStore.getState().setStatus('online')
+
+        // Add a room with live messages already in memory (simulating messages
+        // received while viewing another conversation)
+        const liveMessage = {
+          type: 'groupchat' as const,
+          id: 'live-msg-1',
+          roomJid: 'room@conference.example.com',
+          from: 'room@conference.example.com/alice',
+          nick: 'alice',
+          body: 'New live message',
+          timestamp: new Date('2026-02-04T12:00:00Z'),
+          isOutgoing: false,
+        }
+        roomStore.getState().addRoom({
+          jid: 'room@conference.example.com',
+          name: 'Test Room',
+          nickname: 'testuser',
+          joined: true,
+          supportsMAM: true,
+          occupants: new Map(),
+          messages: [liveMessage], // Room already has a live message
+          unreadCount: 1,
+          mentionsCount: 0,
+          typingUsers: new Set(),
+          isBookmarked: true,
+        })
+
+        // Spy on loadMessagesFromCache
+        const loadSpy = vi.spyOn(roomStore.getState(), 'loadMessagesFromCache')
+
+        // Set up side effects
+        cleanup = setupRoomSideEffects(mockClient)
+
+        // Switch to the room (triggers side effect)
+        roomStore.getState().setActiveRoom('room@conference.example.com')
+
+        // Wait for async cache loading
+        await vi.waitFor(() => {
+          expect(loadSpy).toHaveBeenCalledWith('room@conference.example.com', { limit: 100 })
+        })
+
+        loadSpy.mockRestore()
+      })
+    })
+
     describe('reconnection', () => {
       it('should trigger MAM catchup on reconnection for active room', async () => {
         // Add a room with MAM support
@@ -350,6 +401,52 @@ describe('sideEffects', () => {
   })
 
   describe('setupChatSideEffects', () => {
+    describe('cache loading with existing messages', () => {
+      it('should load from cache even when conversation already has live messages in memory', async () => {
+        // Regression test: When a conversation receives live messages while the user
+        // views another conversation, those live messages are the only messages in memory.
+        // Cache loading must NOT be skipped just because messages exist.
+        connectionStore.getState().setStatus('online')
+        connectionStore.getState().setServerInfo({
+          identity: null,
+          features: [NS_MAM],
+        })
+
+        // Add a conversation with a live message already in memory
+        chatStore.getState().addConversation({
+          id: 'contact@example.com',
+          type: 'chat',
+          lastMessage: null,
+          unreadCount: 1,
+        })
+        chatStore.getState().addMessage('contact@example.com', {
+          type: 'chat',
+          id: 'live-msg-1',
+          from: 'contact@example.com',
+          to: 'me@example.com',
+          body: 'New live message',
+          timestamp: new Date('2026-02-04T12:00:00Z'),
+          isOutgoing: false,
+        })
+
+        // Spy on loadMessagesFromCache
+        const loadSpy = vi.spyOn(chatStore.getState(), 'loadMessagesFromCache')
+
+        // Set up side effects
+        cleanup = setupChatSideEffects(mockClient)
+
+        // Switch to the conversation (triggers side effect)
+        chatStore.getState().setActiveConversation('contact@example.com')
+
+        // Wait for async cache loading
+        await vi.waitFor(() => {
+          expect(loadSpy).toHaveBeenCalledWith('contact@example.com', { limit: 100 })
+        })
+
+        loadSpy.mockRestore()
+      })
+    })
+
     describe('serverInfo MAM support subscription', () => {
       it('should trigger MAM fetch when server MAM support is discovered', async () => {
         // Set up connection as online

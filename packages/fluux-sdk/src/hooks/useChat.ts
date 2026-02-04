@@ -202,9 +202,15 @@ export function useChat() {
     [client]
   )
 
-  // Note: Cache loading is handled automatically by store subscription in sideEffects.ts
-  // Setting the active conversation triggers the subscription which loads cache + MAM
-  const setActiveConversation = useCallback((id: string | null) => {
+  // Load cache BEFORE setting active conversation so that setActiveConversation() in the
+  // store calculates firstNewMessageId with the full message history (cached + live messages).
+  // Without this, conversations that only have live messages (received while viewing another
+  // conversation) would show only new messages without historical context above the marker.
+  const setActiveConversation = useCallback(async (id: string | null) => {
+    if (id) {
+      // Always load from cache first - deduplication is handled by loadMessagesFromCache
+      await chatStore.getState().loadMessagesFromCache(id, { limit: 100 })
+    }
     chatStore.getState().setActiveConversation(id)
   }, [])
 
