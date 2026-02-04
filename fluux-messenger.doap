@@ -1,0 +1,481 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns="http://usefulinc.com/ns/doap#"
+         xmlns:foaf="http://xmlns.com/foaf/0.1/"
+         xmlns:xmpp="https://linkmauve.fr/ns/xmpp-doap#"
+         xmlns:schema="https://schema.org/">
+  <Project>
+    <name>Fluux Messenger</name>
+
+    <created>2025-12-19</created>
+
+    <shortdesc xml:lang="en">Modern cross-platform XMPP client</shortdesc>
+    <shortdesc xml:lang="fr">Client XMPP moderne et multiplateforme</shortdesc>
+
+    <description xml:lang="en">A modern, Web and Desktop cross-platform XMPP client for communities and organizations, built with a reusable Typescript SDK and Tauri for desktop</description>
+    <description xml:lang="fr">Un client XMPP moderne, basé sur les technologies Web pour les communautés et organisations, construit avec un SDK Typescript réutilisable et Tauri pour les clients lourds</description>
+
+    <homepage rdf:resource="https://github.com/processone/fluux-messenger"/>
+    <download-page rdf:resource="https://github.com/processone/fluux-messenger/releases"/>
+    <bug-database rdf:resource="https://github.com/processone/fluux-messenger/issues"/>
+    <developer-forum rdf:resource="xmpp:fluux@conference.process-one.net?join"/>
+
+    <license rdf:resource="https://www.gnu.org/licenses/agpl-3.0.html"/>
+
+    <programming-language>TypeScript</programming-language>
+    <programming-language>Rust</programming-language>
+
+    <os>Linux</os>
+    <os>macOS</os>
+    <os>Windows</os>
+    <os>Browser</os>
+
+    <category rdf:resource="https://linkmauve.fr/ns/xmpp-doap#category-client"/>
+
+    <repository>
+      <GitRepository>
+        <browse rdf:resource="https://github.com/processone/fluux-messenger"/>
+        <location rdf:resource="https://github.com/processone/fluux-messenger.git"/>
+      </GitRepository>
+    </repository>
+
+    <!-- IETF RFCs -->
+    <implements rdf:resource="https://xmpp.org/rfcs/rfc6120.html"/>
+    <implements rdf:resource="https://xmpp.org/rfcs/rfc6121.html"/>
+    <implements rdf:resource="https://xmpp.org/rfcs/rfc7622.html"/>
+    <implements rdf:resource="https://xmpp.org/rfcs/rfc7395.html"/>
+    <implements rdf:resource="https://xmpp.org/rfcs/rfc5122.html"/>
+
+    <!-- XEP-0004: Data Forms -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0004.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Dynamic form rendering for admin commands</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0030: Service Discovery -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0030.html"/>
+        <xmpp:status>complete</xmpp:status>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0045: Multi-User Chat -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0045.html"/>
+        <xmpp:status>partial</xmpp:status>
+        <xmpp:note>Join/leave, messaging, occupant list, roles/affiliations, mediated invitations</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0050: Ad-Hoc Commands -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0050.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Command execution with multi-step flows</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0054: vCard-temp -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0054.html"/>
+        <xmpp:status>partial</xmpp:status>
+        <xmpp:note>Room avatar retrieval and display</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0059: Result Set Management -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0059.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Pagination for MAM queries</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0066: Out of Band Data -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0066.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>File URL sharing with thumbnails</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0077: In-Band Registration -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0077.html"/>
+        <xmpp:status>partial</xmpp:status>
+        <xmpp:note>Password change from profile view</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0084: User Avatar -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0084.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>PEP-based avatar display, publishing, and removal</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0085: Chat State Notifications -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0085.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Typing indicators for 1:1 and MUC</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0115: Entity Capabilities -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0115.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Feature discovery, capability hash, client identification</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0133: Service Administration -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0133.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Admin panel for user management, server stats, announcements</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0153: vCard-Based Avatars -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0153.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Legacy avatar support with SHA-1 hash caching</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0156: Discovering Alternative XMPP Connection Methods -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0156.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Auto-discovers WebSocket endpoint via host-meta</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0172: User Nickname -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0172.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Publish, retrieve, and clear own nickname via PEP</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0191: Blocking Command -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0191.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Block/unblock JIDs, fetch blocklist, push notifications</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0198: Stream Management -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0198.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Session resumption, message delivery reliability, ack tracking</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0199: XMPP Ping -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0199.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Responds to server/contact pings, connection liveness checks</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0203: Delayed Delivery -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0203.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Offline message timestamps</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0223: Persistent Storage of Private Data via PubSub -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0223.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Theme/appearance settings sync across devices</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0249: Direct MUC Invitations -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0249.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Receive room invitations with Accept/Decline</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0264: Jingle Content Thumbnails -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0264.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Image preview thumbnails for file uploads</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0280: Message Carbons -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0280.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Sync messages across multiple connected clients</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0297: Stanza Forwarding -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0297.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Used by Message Carbons</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0308: Last Message Correction -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0308.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Edit last sent message with validation</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0313: Message Archive Management -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0313.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>History fetch with scroll-up lazy loading, IndexedDB caching, RSM pagination</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0317: Hats -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0317.html"/>
+        <xmpp:status>partial</xmpp:status>
+        <xmpp:note>Custom role tags displayed as colored badges</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0319: Last User Interaction in Presence -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0319.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Idle time display and publishing</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0334: Message Processing Hints -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0334.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>no-store hint for transient messages, chat states, and reactions</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0359: Unique and Stable Stanza IDs -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0359.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Message deduplication using stanza-id</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0363: HTTP File Upload -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0363.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>File upload with drag-and-drop, progress indicator, auto service discovery</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0372: References -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0372.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>@mention notifications with position-based highlighting</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0392: Consistent Color Generation -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0392.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Deterministic colors for avatars, nicknames, and hat badges</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0393: Message Styling -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0393.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Bold, italic, strikethrough, monospace, block quotes</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0402: PEP Native Bookmarks -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0402.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Room bookmarks with autojoin and notification preferences</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0422: Message Fastening -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0422.html"/>
+        <xmpp:status>partial</xmpp:status>
+        <xmpp:note>Link previews with OGP metadata attached to messages</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0424: Message Retraction -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0424.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Delete own messages with sender verification</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0428: Fallback Indication -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0428.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Used with message replies for client compatibility</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0444: Message Reactions -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0444.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Emoji reactions on messages in 1:1 and MUC</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0446: File Metadata Element -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0446.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Original image/video dimensions for layout reservation</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0453: DOAP Usage in XMPP -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0453.html"/>
+        <xmpp:status>complete</xmpp:status>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0461: Message Replies -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0461.html"/>
+        <xmpp:status>complete</xmpp:status>
+        <xmpp:note>Reply-to with quoted preview and fallback body</xmpp:note>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- Planned XEPs -->
+
+    <!-- XEP-0184: Message Delivery Receipts -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0184.html"/>
+        <xmpp:status>planned</xmpp:status>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0333: Chat Markers -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0333.html"/>
+        <xmpp:status>planned</xmpp:status>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- XEP-0384: OMEMO Encryption -->
+    <implements>
+      <xmpp:SupportedXep>
+        <xmpp:xep rdf:resource="https://xmpp.org/extensions/xep-0384.html"/>
+        <xmpp:status>planned</xmpp:status>
+      </xmpp:SupportedXep>
+    </implements>
+
+    <!-- Releases -->
+    <release>
+      <Version>
+        <revision>0.11.3</revision>
+        <created>2026-02-03</created>
+        <file-release rdf:resource="https://github.com/processone/fluux-messenger/releases/tag/v0.11.3"/>
+      </Version>
+    </release>
+    <release>
+      <Version>
+        <revision>0.11.2</revision>
+        <created>2026-01-31</created>
+        <file-release rdf:resource="https://github.com/processone/fluux-messenger/releases/tag/v0.11.2"/>
+      </Version>
+    </release>
+    <release>
+      <Version>
+        <revision>0.11.1</revision>
+        <created>2026-01-28</created>
+        <file-release rdf:resource="https://github.com/processone/fluux-messenger/releases/tag/v0.11.1"/>
+      </Version>
+    </release>
+    <release>
+      <Version>
+        <revision>0.11.0</revision>
+        <created>2026-01-27</created>
+        <file-release rdf:resource="https://github.com/processone/fluux-messenger/releases/tag/v0.11.0"/>
+      </Version>
+    </release>
+  </Project>
+</rdf:RDF>

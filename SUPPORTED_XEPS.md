@@ -93,6 +93,12 @@ This document lists the XMPP Extension Protocols (XEPs) and related RFCs impleme
 | [XEP-0050](https://xmpp.org/extensions/xep-0050.html) | Ad-Hoc Commands | ✅ Implemented | Command execution with multi-step flows |
 | [XEP-0133](https://xmpp.org/extensions/xep-0133.html) | Service Administration | ✅ Implemented | Admin panel for user management, server stats, announcements |
 
+## Project Information
+
+| XEP | Name | Status | Notes |
+|-----|------|--------|-------|
+| [XEP-0453](https://xmpp.org/extensions/xep-0453.html) | DOAP Usage in XMPP | ✅ Implemented | Machine-readable project description with supported XEPs (`fluux-messenger.doap`) |
+
 ## Planned XEPs
 
 The following XEPs are planned for future implementation:
