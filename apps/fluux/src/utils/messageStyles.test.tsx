@@ -176,6 +176,23 @@ describe('renderStyledMessage', () => {
       const link = container.querySelector('a')
       expect(link?.rel).toBe('noopener noreferrer')
     })
+
+    it('excludes trailing > from angle-bracketed URLs', () => {
+      const container = renderText('See <https://github.com/issues/123>')
+      const link = container.querySelector('a')
+      expect(link).toBeTruthy()
+      expect(link?.href).toBe('https://github.com/issues/123')
+      expect(link?.textContent).toBe('https://github.com/issues/123')
+      // The > should be text, not part of the link
+      expect(container.textContent).toContain('>')
+    })
+
+    it('handles angle-bracketed URL with fragment', () => {
+      const container = renderText('Check <https://github.com/org/repo/issues/3397#issuecomment-123>')
+      const link = container.querySelector('a')
+      expect(link?.href).toBe('https://github.com/org/repo/issues/3397#issuecomment-123')
+      expect(link?.textContent).not.toContain('>')
+    })
   })
 
   describe('@mentions', () => {

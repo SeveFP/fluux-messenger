@@ -16,8 +16,8 @@
 import React, { useState } from 'react'
 import type { MentionReference } from '@fluux/sdk'
 
-// URL regex pattern
-const URL_REGEX = /(https?:\/\/[^\s<]+[^\s<.,;:!?)"'\]])/g
+// URL regex pattern - excludes < and > to handle angle-bracketed URLs like <https://example.com>
+const URL_REGEX = /(https?:\/\/[^\s<>]+[^\s<>.,;:!?)"'\]])/g
 
 // Mention regex pattern: @word (must be preceded by start or whitespace)
 // Used as fallback when XEP-0372 references aren't available
