@@ -5,7 +5,6 @@
  * the common bubble structure.
  */
 import { useState, memo, type ReactNode } from 'react'
-import { format } from 'date-fns'
 import { CornerUpLeft } from 'lucide-react'
 import { formatMessagePreview, type BaseMessage, type MentionReference, type Contact, type RoomRole, type RoomAffiliation } from '@fluux/sdk'
 import { Avatar } from '../Avatar'
@@ -82,6 +81,12 @@ export interface MessageBubbleProps {
 
   // Callback when reaction picker opens/closes (for hiding other toolbars)
   onReactionPickerChange?: (isOpen: boolean) => void
+
+  // Time formatting function (respects user's 12h/24h preference)
+  formatTime: (date: Date) => string
+
+  // Effective time format for layout width calculations ('12h' needs wider column)
+  timeFormat: '12h' | '24h'
 }
 
 /**
@@ -148,6 +153,9 @@ function arePropsEqual(prev: MessageBubbleProps, next: MessageBubbleProps): bool
   // nickExtras - ReactNode, compare by reference (accept some re-renders)
   if (prev.nickExtras !== next.nickExtras) return false
 
+  // Time format affects column width
+  if (prev.timeFormat !== next.timeFormat) return false
+
   // All data props are equal - skip re-render
   // (callback props like onReply, onEdit, etc. are intentionally ignored)
   return true
@@ -187,6 +195,8 @@ export const MessageBubble = memo(function MessageBubble({
   replyContext,
   mentions,
   onReactionPickerChange,
+  formatTime,
+  timeFormat,
 }: MessageBubbleProps) {
   const [showReactionPicker, setShowReactionPickerState] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -212,18 +222,18 @@ export const MessageBubble = memo(function MessageBubble({
     <div
       data-message-id={message.id}
       data-message-from={senderName}
-      data-message-time={format(message.timestamp, 'HH:mm')}
+      data-message-time={formatTime(message.timestamp)}
       data-message-body={message.body || ''}
       className={`group flex gap-4 ${hoverClass} -mx-4 px-4 py-0.5 transition-colors ${showAvatar ? 'pt-4' : ''}`}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      {/* Avatar, timestamp (when selected), or spacer */}
-      <div className="w-10 flex-shrink-0">
+      {/* Avatar, timestamp (when selected), or spacer - width adapts to time format */}
+      <div className={`${timeFormat === '12h' ? 'w-12' : 'w-10'} flex-shrink-0`}>
         {/* /me action messages always show timestamp instead of avatar */}
         {isActionMessage(message.body) ? (
-          <span className={`text-[10px] text-fluux-muted font-mono pt-0.5 ${isSelected ? 'opacity-100' : hasKeyboardSelection ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
-            {format(message.timestamp, 'HH:mm')}
+          <span className={`block text-center text-[10px] text-fluux-muted font-mono pt-0.5 ${isSelected ? 'opacity-100' : hasKeyboardSelection ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+            {formatTime(message.timestamp)}
           </span>
         ) : showAvatar ? (
           <UserInfoPopover contact={senderContact} jid={senderJid} role={senderRole} affiliation={senderAffiliation}>
@@ -240,8 +250,8 @@ export const MessageBubble = memo(function MessageBubble({
             </div>
           </UserInfoPopover>
         ) : (
-          <span className={`text-[10px] text-fluux-muted font-mono pt-0.5 ${isSelected ? 'opacity-100' : hasKeyboardSelection ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
-            {format(message.timestamp, 'HH:mm')}
+          <span className={`block text-center text-[10px] text-fluux-muted font-mono pt-0.5 ${isSelected ? 'opacity-100' : hasKeyboardSelection ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+            {formatTime(message.timestamp)}
           </span>
         )}
       </div>
@@ -286,7 +296,7 @@ export const MessageBubble = memo(function MessageBubble({
             </UserInfoPopover>
             {nickExtras}
             <span className="text-xs text-fluux-muted">
-              {format(message.timestamp, 'HH:mm')}
+              {formatTime(message.timestamp)}
             </span>
           </div>
         )}
