@@ -28,7 +28,7 @@ export function LinkPreviewCard({ preview, onLoad }: LinkPreviewCardProps) {
       href={preview.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block mt-2 max-w-md border border-fluux-muted/30 rounded-lg overflow-hidden bg-fluux-bg hover:bg-fluux-hover/50 transition-colors"
+      className="block mt-2 max-w-md border border-fluux-muted/20 hover:border-fluux-muted/35 rounded-lg overflow-hidden bg-fluux-bg hover:bg-fluux-hover/50 transition-colors"
     >
       {/* Image preview - hidden entirely on error */}
       {preview.image && !imageError && (
