@@ -513,6 +513,19 @@ export class XMPPClient {
         this.profile.fetchRoomAvatar(roomJid, photoHash).catch(() => {})
       })
 
+      // Listen for MUC occupant avatar updates (XEP-0398)
+      // Emitted by MUC module when an occupant's presence contains vcard-temp:x:update
+      this.on('occupantAvatarUpdate', (roomJid, nick, hash, realJid) => {
+        // Only fetch if the avatar hash changed to avoid re-downloading on every presence
+        const room = this.stores?.room.getRoom(roomJid)
+        const occupant = room?.occupants.get(nick)
+        if (occupant?.avatarHash === hash && occupant?.avatar) {
+          // Same hash and already have avatar blob - skip fetch
+          return
+        }
+        this.profile.fetchOccupantAvatar(roomJid, nick, hash, realJid).catch(() => {})
+      })
+
       // Listen for avatar metadata updates (XEP-0084)
       // Emitted by PubSub module for real events or Roster for vcard-temp:x:update
       this.on('avatarMetadataUpdate', (jid, hash) => {
