@@ -49,12 +49,21 @@ export function ImageAttachment({ attachment, onLoad }: AttachmentProps) {
     ? width / height
     : DEFAULT_ASPECT_RATIO
 
+  // For very wide images (aspect ratio > 3), limit max-width to prevent thin strips
+  // spanning the full container width. This makes them more compact thumbnails.
+  // The wider the aspect ratio, the more we constrain the width.
+  const DEFAULT_MAX_WIDTH = 384 // max-w-sm
+  const maxWidthPx = hasKnownDimensions && aspectRatio > 3
+    // Scale down: 3:1 → 300px, 4:1 → 280px, 5:1 → 260px, 8:1 → 200px
+    ? Math.max(200, Math.round(340 - (aspectRatio - 3) * 20))
+    : DEFAULT_MAX_WIDTH
+
   // Show loading placeholder while fetching
   if (isLoading) {
     return (
       <div
-        className="pt-2 max-w-sm rounded-lg bg-fluux-hover flex items-center justify-center"
-        style={{ aspectRatio, maxHeight: '300px', minHeight: '100px' }}
+        className="pt-2 rounded-lg bg-fluux-hover flex items-center justify-center"
+        style={{ aspectRatio, maxWidth: `${maxWidthPx}px`, maxHeight: '300px', minHeight: '100px' }}
       >
         <Loader2 className="w-6 h-6 text-fluux-muted animate-spin" />
       </div>
@@ -65,8 +74,8 @@ export function ImageAttachment({ attachment, onLoad }: AttachmentProps) {
   if (error || !proxiedImageSrc || loadError) {
     return (
       <div
-        className="pt-2 max-w-sm rounded-lg bg-fluux-hover flex flex-col items-center justify-center text-fluux-muted text-sm gap-2"
-        style={{ aspectRatio, maxHeight: '300px', minHeight: '100px' }}
+        className="pt-2 rounded-lg bg-fluux-hover flex flex-col items-center justify-center text-fluux-muted text-sm gap-2"
+        style={{ aspectRatio, maxWidth: `${maxWidthPx}px`, maxHeight: '300px', minHeight: '100px' }}
       >
         <ImageOff className="w-8 h-8" />
         <span>{t('chat.imageUnavailable')}</span>
@@ -79,7 +88,8 @@ export function ImageAttachment({ attachment, onLoad }: AttachmentProps) {
       href={attachment.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block pt-2 rounded-lg overflow-hidden max-w-sm hover:opacity-90 transition-opacity"
+      className="block pt-2 rounded-lg overflow-hidden hover:opacity-90 transition-opacity"
+      style={{ maxWidth: `${maxWidthPx}px` }}
       tabIndex={-1}
     >
       <img
