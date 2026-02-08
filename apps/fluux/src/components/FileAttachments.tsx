@@ -10,6 +10,13 @@ import type { FileAttachment } from '@fluux/sdk'
  * Shared file attachment components used by both ChatView and RoomView
  */
 
+/**
+ * Cache of URLs that failed to load. Prevents repeated retry attempts
+ * when components are unmounted/remounted (e.g., during scrolling).
+ * Uses a Set for O(1) lookup.
+ */
+const failedUrlCache = new Set<string>()
+
 interface AttachmentProps {
   attachment: FileAttachment
   /** Called when image/video loads - useful for scroll adjustment */
@@ -23,11 +30,13 @@ interface AttachmentProps {
  */
 export function ImageAttachment({ attachment, onLoad }: AttachmentProps) {
   const { t } = useTranslation()
-  const [loadError, setLoadError] = useState(false)
   const isImage = attachment.mediaType?.startsWith('image/') ?? false
 
   // Use thumbnail if available, otherwise fall back to main URL
   const originalImageSrc = attachment.thumbnail?.uri || attachment.url
+
+  // Check if this URL previously failed - initialize state from cache
+  const [loadError, setLoadError] = useState(() => failedUrlCache.has(originalImageSrc))
 
   // Fetch via Tauri HTTP plugin to bypass CORS (only when it's an image)
   const { url: proxiedImageSrc, isLoading, error } = useProxiedUrl(originalImageSrc, isImage)
@@ -106,7 +115,10 @@ export function ImageAttachment({ attachment, onLoad }: AttachmentProps) {
         }}
         loading="lazy"
         onLoad={onLoad}
-        onError={() => setLoadError(true)}
+        onError={() => {
+          failedUrlCache.add(originalImageSrc)
+          setLoadError(true)
+        }}
       />
     </a>
   )
@@ -118,8 +130,10 @@ export function ImageAttachment({ attachment, onLoad }: AttachmentProps) {
  */
 export function VideoAttachment({ attachment, onLoad }: AttachmentProps) {
   const { t } = useTranslation()
-  const [loadError, setLoadError] = useState(false)
   const isVideo = attachment.mediaType?.startsWith('video/') ?? false
+
+  // Check if this URL previously failed - initialize state from cache
+  const [loadError, setLoadError] = useState(() => failedUrlCache.has(attachment.url))
 
   // Fetch video via Tauri HTTP plugin to bypass CORS (only when it's a video)
   const { url: proxiedVideoUrl, isLoading, error } = useProxiedUrl(attachment.url, isVideo)
@@ -167,7 +181,10 @@ export function VideoAttachment({ attachment, onLoad }: AttachmentProps) {
         className="w-full max-h-80"
         tabIndex={-1}
         onLoadedMetadata={onLoad}
-        onError={() => setLoadError(true)}
+        onError={() => {
+          failedUrlCache.add(attachment.url)
+          setLoadError(true)
+        }}
       >
         <source src={proxiedVideoUrl} type={attachment.mediaType} />
       </video>
@@ -204,8 +221,10 @@ export function VideoAttachment({ attachment, onLoad }: AttachmentProps) {
  */
 export function AudioAttachment({ attachment }: AttachmentProps) {
   const { t } = useTranslation()
-  const [loadError, setLoadError] = useState(false)
   const isAudio = (attachment.mediaType?.startsWith('audio/') ?? false) && !attachment.thumbnail
+
+  // Check if this URL previously failed - initialize state from cache
+  const [loadError, setLoadError] = useState(() => failedUrlCache.has(attachment.url))
 
   // Fetch audio via Tauri HTTP plugin to bypass CORS (only when it's audio)
   const { url: proxiedAudioUrl, isLoading, error } = useProxiedUrl(attachment.url, isAudio)
@@ -264,7 +283,10 @@ export function AudioAttachment({ attachment }: AttachmentProps) {
           className="w-full rounded-b-lg"
           style={{ height: '40px' }}
           tabIndex={-1}
-          onError={() => setLoadError(true)}
+          onError={() => {
+            failedUrlCache.add(attachment.url)
+            setLoadError(true)
+          }}
         >
           <source src={proxiedAudioUrl} type={attachment.mediaType} />
         </audio>
