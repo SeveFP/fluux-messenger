@@ -884,19 +884,22 @@ export class Chat extends BaseModule {
     if (!state) return
 
     const myBareJid = getBareJid(this.deps.getCurrentJid() ?? '')
-    const isOutgoing = bareFrom === myBareJid
-    if (isOutgoing) return
-
     const isTyping = state === 'composing'
 
     if (type === 'groupchat') {
       // MUC room: emit room:typing with the nickname
       const nick = getResource(fullFrom)
-      if (nick) {
-        this.deps.emitSDK('room:typing', { roomJid: bareFrom, nick, isTyping })
-      }
+      if (!nick) return
+
+      // Don't show our own typing indicator in MUC rooms
+      const room = this.deps.stores?.room.getRoom(bareFrom)
+      if (room && room.nickname.toLowerCase() === nick.toLowerCase()) return
+
+      this.deps.emitSDK('room:typing', { roomJid: bareFrom, nick, isTyping })
     } else {
       // 1:1 chat: emit chat:typing
+      // Ignore our own typing state (e.g., from carbon copies)
+      if (bareFrom === myBareJid) return
       this.deps.emitSDK('chat:typing', { conversationId: bareFrom, jid: bareFrom, isTyping })
     }
   }

@@ -673,6 +673,60 @@ describe('XMPPClient Message', () => {
 
       expect(emitSDKSpy).not.toHaveBeenCalledWith('room:typing', expect.anything())
     })
+
+    it('should NOT emit room:typing for own typing indicator in MUC room', async () => {
+      await connectClient()
+
+      // Mock the room store to return a room where we have the nickname 'TestUser'
+      mockStores.room.getRoom.mockReturnValue({
+        jid: 'room@conference.example.com',
+        nickname: 'TestUser',
+        joined: true,
+        occupants: new Map(),
+        messages: [],
+      })
+
+      // Receive a composing notification from our own nickname
+      const composingStanza = createMockElement('message', {
+        from: 'room@conference.example.com/TestUser',
+        to: 'user@example.com',
+        type: 'groupchat',
+      }, [
+        { name: 'composing', attrs: { xmlns: 'http://jabber.org/protocol/chatstates' } },
+      ])
+
+      mockXmppClientInstance._emit('stanza', composingStanza)
+
+      // Should NOT emit room:typing for our own typing indicator
+      expect(emitSDKSpy).not.toHaveBeenCalledWith('room:typing', expect.anything())
+    })
+
+    it('should NOT emit room:typing for own typing indicator with different case nickname', async () => {
+      await connectClient()
+
+      // Mock the room store - our nickname is 'TestUser' but server reflects 'testuser'
+      mockStores.room.getRoom.mockReturnValue({
+        jid: 'room@conference.example.com',
+        nickname: 'TestUser',
+        joined: true,
+        occupants: new Map(),
+        messages: [],
+      })
+
+      // Receive a composing notification with different case
+      const composingStanza = createMockElement('message', {
+        from: 'room@conference.example.com/testuser',
+        to: 'user@example.com',
+        type: 'groupchat',
+      }, [
+        { name: 'composing', attrs: { xmlns: 'http://jabber.org/protocol/chatstates' } },
+      ])
+
+      mockXmppClientInstance._emit('stanza', composingStanza)
+
+      // Should NOT emit room:typing (case-insensitive comparison)
+      expect(emitSDKSpy).not.toHaveBeenCalledWith('room:typing', expect.anything())
+    })
   })
 
   describe('message styling (XEP-0393)', () => {
