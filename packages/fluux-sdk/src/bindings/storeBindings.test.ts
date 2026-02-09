@@ -247,6 +247,17 @@ describe('createStoreBindings', () => {
       )
     })
 
+    it('should handle room:typing', () => {
+      mockClient.emit('room:typing', {
+        roomJid: 'room@conference.example.com',
+        nick: 'Alice',
+        isTyping: true,
+      })
+      expect(mockStores.room.setTyping).toHaveBeenCalledWith(
+        'room@conference.example.com', 'Alice', true
+      )
+    })
+
     it('should handle room:subject', () => {
       mockClient.emit('room:subject', { roomJid: 'room@conference.example.com', subject: 'New topic' })
       expect(mockStores.room.updateRoom).toHaveBeenCalledWith('room@conference.example.com', { subject: 'New topic' })

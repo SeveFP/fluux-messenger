@@ -594,6 +594,85 @@ describe('XMPPClient Message', () => {
       // Should have sent the chat state
       expect(mockXmppClientInstance.send).toHaveBeenCalled()
     })
+
+    it('should emit room:typing for composing notification in MUC room', async () => {
+      await connectClient()
+
+      const composingStanza = createMockElement('message', {
+        from: 'room@conference.example.com/Alice',
+        to: 'user@example.com',
+        type: 'groupchat',
+      }, [
+        { name: 'composing', attrs: { xmlns: 'http://jabber.org/protocol/chatstates' } },
+      ])
+
+      mockXmppClientInstance._emit('stanza', composingStanza)
+
+      expect(emitSDKSpy).toHaveBeenCalledWith('room:typing', {
+        roomJid: 'room@conference.example.com',
+        nick: 'Alice',
+        isTyping: true
+      })
+      // Should NOT emit chat:typing for groupchat messages
+      expect(emitSDKSpy).not.toHaveBeenCalledWith('chat:typing', expect.anything())
+    })
+
+    it('should emit room:typing with isTyping=false for paused notification in MUC room', async () => {
+      await connectClient()
+
+      const pausedStanza = createMockElement('message', {
+        from: 'room@conference.example.com/Bob',
+        to: 'user@example.com',
+        type: 'groupchat',
+      }, [
+        { name: 'paused', attrs: { xmlns: 'http://jabber.org/protocol/chatstates' } },
+      ])
+
+      mockXmppClientInstance._emit('stanza', pausedStanza)
+
+      expect(emitSDKSpy).toHaveBeenCalledWith('room:typing', {
+        roomJid: 'room@conference.example.com',
+        nick: 'Bob',
+        isTyping: false
+      })
+    })
+
+    it('should emit room:typing with isTyping=false for active notification in MUC room', async () => {
+      await connectClient()
+
+      const activeStanza = createMockElement('message', {
+        from: 'room@conference.example.com/Charlie',
+        to: 'user@example.com',
+        type: 'groupchat',
+      }, [
+        { name: 'active', attrs: { xmlns: 'http://jabber.org/protocol/chatstates' } },
+      ])
+
+      mockXmppClientInstance._emit('stanza', activeStanza)
+
+      expect(emitSDKSpy).toHaveBeenCalledWith('room:typing', {
+        roomJid: 'room@conference.example.com',
+        nick: 'Charlie',
+        isTyping: false
+      })
+    })
+
+    it('should NOT emit room:typing when nick is missing from MUC message', async () => {
+      await connectClient()
+
+      // Room-level message without a nick (bare JID)
+      const composingStanza = createMockElement('message', {
+        from: 'room@conference.example.com',
+        to: 'user@example.com',
+        type: 'groupchat',
+      }, [
+        { name: 'composing', attrs: { xmlns: 'http://jabber.org/protocol/chatstates' } },
+      ])
+
+      mockXmppClientInstance._emit('stanza', composingStanza)
+
+      expect(emitSDKSpy).not.toHaveBeenCalledWith('room:typing', expect.anything())
+    })
   })
 
   describe('message styling (XEP-0393)', () => {

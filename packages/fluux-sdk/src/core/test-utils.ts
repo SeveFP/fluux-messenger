@@ -922,6 +922,7 @@ export const createMockStoreRefs = (): MockStoreRefs => ({
     addMessage: vi.fn(),
     updateMessage: vi.fn(),
     updateReactions: vi.fn(),
+    setTyping: vi.fn(),
     setBookmark: vi.fn(),
     removeBookmark: vi.fn(),
     triggerAnimation: vi.fn(),

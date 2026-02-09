@@ -177,6 +177,11 @@ export function createStoreBindings(
     stores.chat.setTyping(conversationId, jid, isTyping)
   })
 
+  on('room:typing', ({ roomJid, nick, isTyping }) => {
+    const stores = getStores()
+    stores.room.setTyping(roomJid, nick, isTyping)
+  })
+
   on('chat:reactions', ({ conversationId, messageId, reactorJid, emojis }) => {
     const stores = getStores()
     stores.chat.updateReactions(conversationId, messageId, reactorJid, emojis)

@@ -178,7 +178,7 @@ export class Chat extends BaseModule {
 
     // Chat States
     if (!isCarbonCopy) {
-      this.handleChatState(stanza, bareFrom, bareTo)
+      this.handleChatState(stanza, from, bareFrom, bareTo, type)
     }
 
     // Reactions
@@ -879,18 +879,25 @@ export class Chat extends BaseModule {
     }
   }
 
-  private handleChatState(stanza: Element, from: string, to?: string): void {
+  private handleChatState(stanza: Element, fullFrom: string, bareFrom: string, _bareTo?: string, type?: string): void {
     const state = ['active', 'composing', 'paused', 'inactive', 'gone'].find(s => !!stanza.getChild(s, NS_CHATSTATES)) as ChatStateNotification | undefined
     if (!state) return
 
     const myBareJid = getBareJid(this.deps.getCurrentJid() ?? '')
-    const isOutgoing = from === myBareJid
-    const conversationId = isOutgoing ? to : from
-    if (!conversationId) return
+    const isOutgoing = bareFrom === myBareJid
+    if (isOutgoing) return
 
-    if (!isOutgoing) {
-      // SDK event only - binding calls store.setTyping
-      this.deps.emitSDK('chat:typing', { conversationId, jid: from, isTyping: state === 'composing' })
+    const isTyping = state === 'composing'
+
+    if (type === 'groupchat') {
+      // MUC room: emit room:typing with the nickname
+      const nick = getResource(fullFrom)
+      if (nick) {
+        this.deps.emitSDK('room:typing', { roomJid: bareFrom, nick, isTyping })
+      }
+    } else {
+      // 1:1 chat: emit chat:typing
+      this.deps.emitSDK('chat:typing', { conversationId: bareFrom, jid: bareFrom, isTyping })
     }
   }
 
