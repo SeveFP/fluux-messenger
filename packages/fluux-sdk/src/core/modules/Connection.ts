@@ -1335,6 +1335,7 @@ export class Connection extends BaseModule {
       errorMessage.includes('null is not an object') ||
       errorMessage.includes('Cannot read properties of null') ||
       errorMessage.includes('socket is null') ||
+      errorMessage.includes('Socket not available') ||
       errorMessage.includes('WebSocket is not open')
     )
   }

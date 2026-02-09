@@ -92,7 +92,12 @@ export function useWakeDetector() {
       if (document.hidden) {
         // Page is now hidden - record the time and notify SDK
         hiddenAtRef.current = Date.now()
-        await notifySystemState('hidden')
+        try {
+          await notifySystemState('hidden')
+        } catch (err) {
+          // Ignore errors when notifying hidden state - socket may already be dead
+          console.debug('[WakeDetector] Error notifying hidden state:', err)
+        }
         return
       }
 
@@ -139,10 +144,13 @@ export function useWakeDetector() {
     let cleanedUp = false
 
     // Dynamic import to avoid loading Tauri APIs in web mode
-    import('@tauri-apps/api/event').then(({ listen }) => {
-      listen('xmpp-keepalive', () => {
+    void import('@tauri-apps/api/event').then(({ listen }) => {
+      void listen('xmpp-keepalive', () => {
         // Signal SDK to verify connection
-        void notifySystemState('visible')
+        notifySystemState('visible').catch((err) => {
+          // Ignore errors - socket may be dead and reconnect will handle it
+          console.debug('[WakeDetector] Error on keepalive notification:', err)
+        })
       }).then((fn) => {
         // If cleanup already ran, unlisten immediately
         if (cleanedUp) {
