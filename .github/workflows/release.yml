@@ -139,9 +139,6 @@ jobs:
           echo "$NOTES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Install Azure Sign Tool
-        run: dotnet tool install --global AzureSignTool
-
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -156,22 +153,21 @@ jobs:
           releaseDraft: false
           prerelease: false
 
-      - name: Sign Windows executables
-        shell: pwsh
-        run: |
-          $files = Get-ChildItem -Path "apps/fluux/src-tauri/target/release/bundle" -Recurse -Include "*.exe", "*.msi"
-          foreach ($file in $files) {
-            Write-Host "Signing: $($file.FullName)"
-            AzureSignTool sign `
-              -kvu "${{ secrets.AZURE_SIGNING_ENDPOINT }}" `
-              -kvt "${{ secrets.AZURE_TENANT_ID }}" `
-              -kvi "${{ secrets.AZURE_CLIENT_ID }}" `
-              -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" `
-              -kvc "${{ secrets.AZURE_CERT_PROFILE_NAME }}" `
-              -tr "http://timestamp.digicert.com" `
-              -td sha256 `
-              "$($file.FullName)"
-          }
+      - name: Sign Windows executables with Azure Trusted Signing
+        uses: azure/trusted-signing-action@v0.5.1
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.AZURE_CODE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.AZURE_CERT_PROFILE_NAME }}
+          files-folder: apps/fluux/src-tauri/target/release/bundle
+          files-folder-filter: exe,msi
+          files-folder-recurse: true
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
 
       - name: Re-upload signed artifacts
         shell: bash
