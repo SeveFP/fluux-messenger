@@ -167,26 +167,76 @@ async function main() {
     console.log(`  Renamed: ${asset.name} -> ${newName}`);
   }
 
-  // Download and update latest.json
-  console.log('\nUpdating latest.json...');
-  const latestJsonAsset = release.assets.find(a => a.name === 'latest.json');
-  if (latestJsonAsset) {
-    const latestJsonContent = await downloadAsset(latestJsonAsset.url);
-    const latestJson = JSON.parse(latestJsonContent);
+  // Generate complete latest.json from scratch using .sig files
+  // This ensures all platforms are included regardless of which build finished first
+  console.log('\nGenerating latest.json...');
 
-    // Update all URLs in the platforms
-    for (const [platform, data] of Object.entries(latestJson.platforms)) {
-      if (urlMap[data.url]) {
-        console.log(`  Updating ${platform}: ${data.url} -> ${urlMap[data.url]}`);
-        latestJson.platforms[platform].url = urlMap[data.url];
+  // Re-fetch release to get renamed assets
+  const updatedRelease = await makeRequest('GET', `/repos/${OWNER}/${REPO}/releases/tags/${tag}`);
+
+  // Platform mapping: signature file pattern -> { platforms, updater file pattern }
+  const platformMappings = [
+    {
+      sigPattern: /_macOS_arm64\.app\.tar\.gz\.sig$/,
+      platforms: ['darwin-aarch64'],
+      getUpdaterFile: (v) => `Fluux-Messenger_${v}_macOS_arm64.app.tar.gz`,
+    },
+    {
+      sigPattern: /_macOS_x64\.app\.tar\.gz\.sig$/,
+      platforms: ['darwin-x86_64'],
+      getUpdaterFile: (v) => `Fluux-Messenger_${v}_macOS_x64.app.tar.gz`,
+    },
+    {
+      sigPattern: /_Windows_x64\.msi\.sig$/,
+      platforms: ['windows-x86_64', 'windows-x86_64-msi'],
+      getUpdaterFile: (v) => `Fluux-Messenger_${v}_Windows_x64.msi`,
+    },
+    {
+      sigPattern: /_Windows_x64-setup\.exe\.sig$/,
+      platforms: ['windows-x86_64-nsis'],
+      getUpdaterFile: (v) => `Fluux-Messenger_${v}_Windows_x64-setup.exe`,
+    },
+  ];
+
+  const platforms = {};
+  const baseUrl = `https://github.com/${OWNER}/${REPO}/releases/download/${tag}`;
+
+  for (const mapping of platformMappings) {
+    const sigAsset = updatedRelease.assets.find(a => mapping.sigPattern.test(a.name));
+    if (sigAsset) {
+      console.log(`  Found signature: ${sigAsset.name}`);
+      const signature = await downloadAsset(sigAsset.url);
+      const updaterFile = mapping.getUpdaterFile(version);
+
+      for (const platform of mapping.platforms) {
+        platforms[platform] = {
+          signature: signature.trim(),
+          url: `${baseUrl}/${updaterFile}`,
+        };
+        console.log(`    Added platform: ${platform}`);
       }
     }
+  }
 
-    // Delete old latest.json and upload new one
-    await makeRequest('DELETE', `/repos/${OWNER}/${REPO}/releases/assets/${latestJsonAsset.id}`);
+  if (Object.keys(platforms).length === 0) {
+    console.log('  No updater signatures found, skipping latest.json generation');
+  } else {
+    const latestJson = {
+      version,
+      notes: `See the [CHANGELOG](https://github.com/${OWNER}/${REPO}/blob/main/CHANGELOG.md) for details.`,
+      pub_date: new Date().toISOString(),
+      platforms,
+    };
 
-    // Upload updated latest.json
-    const uploadUrl = release.upload_url.replace('{?name,label}', `?name=latest.json`);
+    // Delete existing latest.json if present
+    const existingLatestJson = updatedRelease.assets.find(a => a.name === 'latest.json');
+    if (existingLatestJson) {
+      await makeRequest('DELETE', `/repos/${OWNER}/${REPO}/releases/assets/${existingLatestJson.id}`);
+      console.log('  Deleted old latest.json');
+    }
+
+    // Upload new latest.json
+    const uploadUrl = updatedRelease.upload_url.replace('{?name,label}', '?name=latest.json');
     const jsonContent = JSON.stringify(latestJson, null, 2);
     const uploadOptions = {
       hostname: 'uploads.github.com',
@@ -219,7 +269,7 @@ async function main() {
       req.end();
     });
 
-    console.log('  Uploaded updated latest.json');
+    console.log(`  Uploaded latest.json with ${Object.keys(platforms).length} platforms`);
   }
 
   console.log('\nDone! Assets renamed successfully.');
