@@ -1079,7 +1079,7 @@ describe('MessageComposer', () => {
   })
 
   describe('clipboard paste image handling', () => {
-    it('should call onFileSelect when pasting an image from clipboard', () => {
+    it('should call onFileSelect when pasting an image from clipboard (items)', () => {
       const onSend = vi.fn().mockResolvedValue(true)
       const onFileSelect = vi.fn()
 
@@ -1096,7 +1096,7 @@ describe('MessageComposer', () => {
       // Create a mock image file
       const imageFile = new File(['image-data'], 'screenshot.png', { type: 'image/png' })
 
-      // Create mock clipboard data with image
+      // Create mock clipboard data with image in items (Chrome behavior)
       const clipboardData = {
         items: [
           {
@@ -1110,6 +1110,42 @@ describe('MessageComposer', () => {
       fireEvent.paste(textarea, { clipboardData })
 
       expect(onFileSelect).toHaveBeenCalledWith(imageFile)
+    })
+
+    it('should call onFileSelect when pasting an image from clipboard.files (Safari "Copy Image")', () => {
+      const onSend = vi.fn().mockResolvedValue(true)
+      const onFileSelect = vi.fn()
+
+      render(
+        <MessageComposer
+          placeholder="Type a message"
+          onSend={onSend}
+          onFileSelect={onFileSelect}
+        />
+      )
+
+      const textarea = screen.getByPlaceholderText('Type a message')
+
+      // Create a mock image file
+      const imageFile = new File(['image-data'], 'copied-image.png', { type: 'image/png' })
+
+      // Safari "Copy Image" puts the file in clipboardData.files AND includes URL in items
+      // The files property should take priority to avoid pasting the URL
+      const clipboardData = {
+        files: [imageFile],
+        items: [
+          { type: 'text/uri-list', getAsFile: () => null },
+          { type: 'text/plain', getAsFile: () => null },
+          { type: 'text/html', getAsFile: () => null },
+          { type: 'image/png', getAsFile: () => imageFile },
+        ],
+      }
+
+      // Trigger paste event
+      fireEvent.paste(textarea, { clipboardData })
+
+      expect(onFileSelect).toHaveBeenCalledWith(imageFile)
+      expect(onFileSelect).toHaveBeenCalledTimes(1)
     })
 
     it('should not call onFileSelect when pasting text (no image)', () => {

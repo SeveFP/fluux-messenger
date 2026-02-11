@@ -445,23 +445,41 @@ export const MessageComposer = forwardRef<MessageComposerHandle, MessageComposer
     onSelectionChange?.(e.currentTarget.selectionStart)
   }
 
-  // Handle clipboard paste - stage images as pending attachment
+  // Handle clipboard paste - stage files as pending attachment
+  // Supports: screenshots, "Copy Image" from browsers, pasted files
   const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = e.clipboardData?.items
-    if (!items || !onFileSelect) return
+    if (!onFileSelect) return
 
-    // Look for image in clipboard
+    const clipboardData = e.clipboardData
+    if (!clipboardData) return
+
+    // First check clipboardData.files (populated by Safari "Copy Image" and some apps)
+    // This takes priority because it contains the actual file with proper metadata
+    const files = clipboardData.files
+    if (files && files.length > 0) {
+      const file = files[0]
+      if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+        e.preventDefault()
+        onFileSelect(file)
+        return
+      }
+    }
+
+    // Fallback: check clipboardData.items for image data (screenshots, Chrome "Copy Image")
+    const items = clipboardData.items
+    if (!items) return
+
     for (const item of items) {
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile()
         if (file) {
-          e.preventDefault() // Prevent pasting image data as text
+          e.preventDefault() // Prevent pasting URL as text
           onFileSelect(file)
           return
         }
       }
     }
-    // If no image found, let the paste proceed normally (text paste)
+    // If no file/image found, let the paste proceed normally (text paste)
   }, [onFileSelect])
 
   // File upload handlers
