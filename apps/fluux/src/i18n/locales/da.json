@@ -381,7 +381,8 @@
     "reportIssue": "Rapporter et problem",
     "logOut": "Log ud",
     "logoutConfirm": "Er du sikker på, at du vil afbryde forbindelsen?",
-    "disconnect": "Afbryd"
+    "disconnect": "Afbryd",
+    "cleanLocalData": "Ryd lokale data (beskeder, cache)"
   },
   "changelog": {
     "title": "Nyheder",

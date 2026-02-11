@@ -380,7 +380,8 @@
     "reportIssue": "Tuairiscigh fadhb",
     "logOut": "Logáil Amach",
     "logoutConfirm": "An bhfuil tú cinnte gur mian leat dícheangal?",
-    "disconnect": "Dícheangail"
+    "disconnect": "Dícheangail",
+    "cleanLocalData": "Glan sonraí áitiúla (teachtaireachtaí, taisce)"
   },
   "changelog": {
     "title": "Cad atá Nua",

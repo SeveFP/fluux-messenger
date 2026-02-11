@@ -381,7 +381,8 @@
     "reportIssue": "Prijavi problem",
     "logOut": "Odjava",
     "logoutConfirm": "Jeste li sigurni da se želite odspojiti?",
-    "disconnect": "Odspoji"
+    "disconnect": "Odspoji",
+    "cleanLocalData": "Obriši lokalne podatke (poruke, predmemorija)"
   },
   "changelog": {
     "title": "Što je novo",

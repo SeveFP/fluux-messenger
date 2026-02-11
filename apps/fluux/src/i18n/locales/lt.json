@@ -381,7 +381,8 @@
     "reportIssue": "Pranešti apie problemą",
     "logOut": "Atsijungti",
     "logoutConfirm": "Ar tikrai norite atsijungti?",
-    "disconnect": "Atsijungti"
+    "disconnect": "Atsijungti",
+    "cleanLocalData": "Išvalyti vietinius duomenis (žinutes, talpyklą)"
   },
   "changelog": {
     "title": "Kas naujo",

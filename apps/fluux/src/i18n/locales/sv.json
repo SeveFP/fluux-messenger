@@ -380,7 +380,8 @@
     "reportIssue": "Rapportera ett problem",
     "logOut": "Logga ut",
     "logoutConfirm": "Är du säker på att du vill koppla från?",
-    "disconnect": "Koppla från"
+    "disconnect": "Koppla från",
+    "cleanLocalData": "Rensa lokal data (meddelanden, cache)"
   },
   "changelog": {
     "title": "Nyheter",

@@ -381,7 +381,8 @@
     "reportIssue": "Report an issue",
     "logOut": "Log out",
     "logoutConfirm": "Are you sure you want to disconnect?",
-    "disconnect": "Disconnect"
+    "disconnect": "Disconnect",
+    "cleanLocalData": "Clear local data (messages, cache)"
   },
   "changelog": {
     "title": "What's New",

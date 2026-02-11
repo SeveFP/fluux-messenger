@@ -493,6 +493,38 @@ export async function clearNoAvatar(jid: string): Promise<void> {
 }
 
 /**
+ * Clear all no-avatar entries
+ */
+export async function clearAllNoAvatarEntries(): Promise<void> {
+  try {
+    const db = await getDB()
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(NO_AVATAR_STORE_NAME, 'readwrite')
+      const store = transaction.objectStore(NO_AVATAR_STORE_NAME)
+      const request = store.clear()
+
+      request.onerror = () => reject(request.error)
+      request.onsuccess = () => resolve()
+    })
+  } catch (error) {
+    if (isIndexedDBAvailable()) {
+      console.warn('Failed to clear no-avatar entries:', error)
+    }
+  }
+}
+
+/**
+ * Clear all avatar data (blobs, hash mappings, and no-avatar entries)
+ */
+export async function clearAllAvatarData(): Promise<void> {
+  await Promise.all([
+    clearAllAvatars(),
+    clearAllAvatarHashes(),
+    clearAllNoAvatarEntries(),
+  ])
+}
+
+/**
  * Clear expired no-avatar entries
  *
  * @param ttlMs - Time-to-live in milliseconds (default: 24 hours)

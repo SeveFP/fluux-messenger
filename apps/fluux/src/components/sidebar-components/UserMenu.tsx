@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useClickOutside, useIsMobileWeb } from '@/hooks'
 import { useModals } from '@/contexts'
 import { useConsole } from '@fluux/sdk'
+import { isTauri } from '@/utils/tauri'
 import { AboutModal } from '../AboutModal'
 import { ChangelogModal } from '../ChangelogModal'
 import { Tooltip } from '../Tooltip'
@@ -17,7 +18,7 @@ import {
 } from 'lucide-react'
 
 interface UserMenuProps {
-  onLogout: () => void
+  onLogout: (shouldCleanLocalData: boolean) => void
 }
 
 export function UserMenu({ onLogout }: UserMenuProps) {
@@ -26,6 +27,12 @@ export function UserMenu({ onLogout }: UserMenuProps) {
   const [showAbout, setShowAbout] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [cleanLocalData, setCleanLocalData] = useState(() => {
+    // On web: always default to cleaning (no remember-me available)
+    if (!isTauri()) return true
+    // On desktop: clean if remember-me was NOT checked
+    return localStorage.getItem('xmpp-remember-me') !== 'true'
+  })
   const menuRef = useRef<HTMLDivElement>(null)
   const { toggle: toggleConsole, isOpen: consoleOpen } = useConsole()
   const { actions: modalActions } = useModals()
@@ -161,7 +168,18 @@ export function UserMenu({ onLogout }: UserMenuProps) {
             <div className="p-6 text-center">
               <LogOut className="w-12 h-12 mx-auto mb-4 text-fluux-muted" />
               <h3 className="text-lg font-semibold text-fluux-text mb-2">{t('menu.logOut')}</h3>
-              <p className="text-fluux-muted text-sm mb-6">{t('menu.logoutConfirm')}</p>
+              <p className="text-fluux-muted text-sm mb-4">{t('menu.logoutConfirm')}</p>
+              <label className="flex items-center gap-2 text-sm text-fluux-text cursor-pointer mb-6">
+                <input
+                  type="checkbox"
+                  checked={cleanLocalData}
+                  onChange={(e) => setCleanLocalData(e.target.checked)}
+                  className="w-4 h-4 rounded border border-fluux-border bg-fluux-bg
+                             checked:bg-fluux-brand checked:border-fluux-brand
+                             focus:ring-fluux-brand focus:ring-offset-0"
+                />
+                {t('menu.cleanLocalData')}
+              </label>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowLogoutConfirm(false)}
@@ -172,7 +190,7 @@ export function UserMenu({ onLogout }: UserMenuProps) {
                 <button
                   onClick={() => {
                     setShowLogoutConfirm(false)
-                    onLogout()
+                    onLogout(cleanLocalData)
                   }}
                   className="flex-1 px-4 py-2 text-white bg-fluux-red rounded hover:bg-fluux-red/80 transition-colors"
                 >

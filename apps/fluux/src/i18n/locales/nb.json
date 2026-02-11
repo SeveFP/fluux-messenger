@@ -381,7 +381,8 @@
     "reportIssue": "Rapporter et problem",
     "logOut": "Logg ut",
     "logoutConfirm": "Er du sikker på at du vil koble fra?",
-    "disconnect": "Koble fra"
+    "disconnect": "Koble fra",
+    "cleanLocalData": "Slett lokale data (meldinger, hurtigbuffer)"
   },
   "changelog": {
     "title": "Hva er nytt",

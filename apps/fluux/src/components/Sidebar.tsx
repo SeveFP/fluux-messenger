@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import { clearSession } from '@/hooks/useSessionPersistence'
 import { deleteCredentials } from '@/utils/keychain'
+import { clearLocalData } from '@/utils/clearLocalData'
 
 // Import extracted sidebar components
 import {
@@ -397,7 +398,15 @@ export function Sidebar({ onSelectContact, onStartChat, onManageUser, adminCateg
                 </button>
               </Tooltip>
             ) : (
-              <UserMenu onLogout={() => { clearSession(); deleteCredentials(); disconnect() }} />
+              <UserMenu onLogout={async (shouldCleanLocalData) => {
+                if (shouldCleanLocalData) {
+                  await clearLocalData()
+                } else {
+                  clearSession()
+                  await deleteCredentials()
+                }
+                disconnect()
+              }} />
             )}
           </div>
         </div>

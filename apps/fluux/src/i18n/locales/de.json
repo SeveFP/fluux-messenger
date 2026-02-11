@@ -380,7 +380,8 @@
     "reportIssue": "Problem melden",
     "logOut": "Abmelden",
     "logoutConfirm": "Möchten Sie sich wirklich trennen?",
-    "disconnect": "Trennen"
+    "disconnect": "Trennen",
+    "cleanLocalData": "Lokale Daten löschen (Nachrichten, Cache)"
   },
   "changelog": {
     "title": "Was ist neu",

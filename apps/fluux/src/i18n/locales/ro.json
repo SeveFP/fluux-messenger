@@ -380,7 +380,8 @@
     "reportIssue": "Raportează o problemă",
     "logOut": "Deconectare",
     "logoutConfirm": "Ești sigur că vrei să te deconectezi?",
-    "disconnect": "Deconectează"
+    "disconnect": "Deconectează",
+    "cleanLocalData": "Șterge datele locale (mesaje, cache)"
   },
   "changelog": {
     "title": "Noutăți",

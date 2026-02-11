@@ -510,3 +510,8 @@ export {
   isMessageCacheAvailable,
 } from './utils/messageCache'
 export type { GetMessagesOptions } from './utils/messageCache'
+
+// Avatar cache operations
+export {
+  clearAllAvatarData,
+} from './utils/avatarCache'

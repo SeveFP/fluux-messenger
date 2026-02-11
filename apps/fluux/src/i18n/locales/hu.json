@@ -381,7 +381,8 @@
     "reportIssue": "Hiba bejelentése",
     "logOut": "Kijelentkezés",
     "logoutConfirm": "Biztosan szeretne lecsatlakozni?",
-    "disconnect": "Lecsatlakozás"
+    "disconnect": "Lecsatlakozás",
+    "cleanLocalData": "Helyi adatok törlése (üzenetek, gyorsítótár)"
   },
   "changelog": {
     "title": "Újdonságok",

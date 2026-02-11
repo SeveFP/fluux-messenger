@@ -380,7 +380,8 @@
     "reportIssue": "Ziņot par problēmu",
     "logOut": "Iziet",
     "logoutConfirm": "Vai tiešām vēlaties atvienoties?",
-    "disconnect": "Atvienoties"
+    "disconnect": "Atvienoties",
+    "cleanLocalData": "Dzēst lokālos datus (ziņojumi, kešatmiņa)"
   },
   "changelog": {
     "title": "Kas jauns",

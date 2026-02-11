@@ -381,7 +381,8 @@
     "reportIssue": "Nahlásit problém",
     "logOut": "Odhlásit se",
     "logoutConfirm": "Opravdu se chcete odpojit?",
-    "disconnect": "Odpojit"
+    "disconnect": "Odpojit",
+    "cleanLocalData": "Vymazat lokální data (zprávy, mezipaměť)"
   },
   "changelog": {
     "title": "Co je nového",

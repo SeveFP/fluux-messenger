@@ -380,7 +380,8 @@
     "reportIssue": "Zgłoś problem",
     "logOut": "Wyloguj",
     "logoutConfirm": "Czy na pewno chcesz się rozłączyć?",
-    "disconnect": "Rozłącz"
+    "disconnect": "Rozłącz",
+    "cleanLocalData": "Wyczyść dane lokalne (wiadomości, pamięć podręczna)"
   },
   "changelog": {
     "title": "Co nowego",

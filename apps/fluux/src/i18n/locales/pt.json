@@ -380,7 +380,8 @@
     "reportIssue": "Reportar um problema",
     "logOut": "Terminar sessão",
     "logoutConfirm": "Tem a certeza que pretende desligar?",
-    "disconnect": "Desligar"
+    "disconnect": "Desligar",
+    "cleanLocalData": "Limpar dados locais (mensagens, cache)"
   },
   "changelog": {
     "title": "Novidades",

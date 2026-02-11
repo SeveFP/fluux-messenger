@@ -381,7 +381,8 @@
     "reportIssue": "Ilmoita ongelmasta",
     "logOut": "Kirjaudu ulos",
     "logoutConfirm": "Haluatko varmasti katkaista yhteyden?",
-    "disconnect": "Katkaise yhteys"
+    "disconnect": "Katkaise yhteys",
+    "cleanLocalData": "Tyhjennä paikalliset tiedot (viestit, välimuisti)"
   },
   "changelog": {
     "title": "Uutta",

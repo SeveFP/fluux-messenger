@@ -380,7 +380,8 @@
     "reportIssue": "Teata probleemist",
     "logOut": "Logi välja",
     "logoutConfirm": "Kas oled kindel, et soovid ühenduse katkestada?",
-    "disconnect": "Katkesta ühendus"
+    "disconnect": "Katkesta ühendus",
+    "cleanLocalData": "Kustuta kohalikud andmed (sõnumid, vahemälu)"
   },
   "changelog": {
     "title": "Mis on uut",

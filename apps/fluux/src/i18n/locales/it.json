@@ -380,7 +380,8 @@
     "reportIssue": "Segnala un problema",
     "logOut": "Esci",
     "logoutConfirm": "Sei sicuro di volerti disconnettere?",
-    "disconnect": "Disconnetti"
+    "disconnect": "Disconnetti",
+    "cleanLocalData": "Cancella dati locali (messaggi, cache)"
   },
   "changelog": {
     "title": "Novita",

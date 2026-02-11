@@ -380,7 +380,8 @@
     "reportIssue": "Probleem melden",
     "logOut": "Uitloggen",
     "logoutConfirm": "Weet je zeker dat je wilt verbreken?",
-    "disconnect": "Verbreken"
+    "disconnect": "Verbreken",
+    "cleanLocalData": "Lokale gegevens wissen (berichten, cache)"
   },
   "changelog": {
     "title": "Wat is nieuw",

@@ -380,7 +380,8 @@
     "reportIssue": "Tilkynna vandamál",
     "logOut": "Útskrá",
     "logoutConfirm": "Ertu viss um að þú viljir aftengja?",
-    "disconnect": "Aftengja"
+    "disconnect": "Aftengja",
+    "cleanLocalData": "Hreinsa staðbundin gögn (skilaboð, skyndiminni)"
   },
   "changelog": {
     "title": "Hvað er nýtt",

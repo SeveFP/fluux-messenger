@@ -381,7 +381,8 @@
     "reportIssue": "Prijavi težavo",
     "logOut": "Odjava",
     "logoutConfirm": "Ali ste prepričani, da se želite odklopiti?",
-    "disconnect": "Odklopi"
+    "disconnect": "Odklopi",
+    "cleanLocalData": "Izbriši lokalne podatke (sporočila, predpomnilnik)"
   },
   "changelog": {
     "title": "Kaj je novega",

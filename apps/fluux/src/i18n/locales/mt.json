@@ -380,7 +380,8 @@
     "reportIssue": "Irrapporta problema",
     "logOut": "Oħroġ",
     "logoutConfirm": "Żgur li trid tidiskonnettja?",
-    "disconnect": "Diskonnettja"
+    "disconnect": "Diskonnettja",
+    "cleanLocalData": "Iċċalja d-data lokali (messaġġi, cache)"
   },
   "changelog": {
     "title": "X'hemm Ġdid",
