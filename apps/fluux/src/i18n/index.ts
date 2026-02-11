@@ -3,6 +3,7 @@ import { initReactI18next } from 'react-i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 
 import bg from './locales/bg.json'
+import ca from './locales/ca.json'
 import cs from './locales/cs.json'
 import da from './locales/da.json'
 import de from './locales/de.json'
@@ -31,6 +32,7 @@ import sv from './locales/sv.json'
 
 const resources = {
   bg: { translation: bg },
+  ca: { translation: ca },
   cs: { translation: cs },
   da: { translation: da },
   de: { translation: de },

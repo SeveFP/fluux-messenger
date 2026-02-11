@@ -6,6 +6,7 @@ import { useSettingsStore, type TimeFormat } from '@/stores/settingsStore'
 
 const languages = [
   { code: 'bg', name: 'Български' },
+  { code: 'ca', name: 'Català' },
   { code: 'cs', name: 'Čeština' },
   { code: 'da', name: 'Dansk' },
   { code: 'de', name: 'Deutsch' },
