@@ -336,7 +336,7 @@ jobs:
 
           # Build Flatpak
           cd flatpak-build
-          flatpak-builder --user --force-clean --repo=repo build-dir com.processone.fluux.yaml
+          flatpak-builder --user --force-clean --disable-updates --repo=repo build-dir com.processone.fluux.yaml
 
           # Create single-file bundle
           flatpak build-bundle repo "fluux-messenger-${VERSION}-linux-${ARCH}.flatpak" com.processone.fluux
