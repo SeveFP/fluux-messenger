@@ -795,19 +795,22 @@ export class Profile extends BaseModule {
   }
 
   /**
-   * Restore avatar hashes for all contacts from IndexedDB cache.
-   * This is called after roster load to populate avatarHash for offline contacts,
-   * enabling the UI to restore their cached avatars.
+   * Restore avatar hashes and blob URLs for all contacts from IndexedDB cache.
+   * This is called after roster load to populate avatars for offline contacts.
    */
   async restoreAllContactAvatarHashes(): Promise<void> {
     try {
       const mappings = await getAllAvatarHashes('contact')
       for (const mapping of mappings) {
-        // Only set the hash if the contact exists in roster
-        // The UI will then restore the actual avatar blob from cache
         const contact = this.deps.stores?.roster.getContact(mapping.jid)
         if (contact && !contact.avatarHash) {
-          this.deps.emitSDK('roster:avatar', { jid: mapping.jid, avatar: null, avatarHash: mapping.hash })
+          const cachedUrl = await getCachedAvatar(mapping.hash)
+          if (cachedUrl) {
+            this.deps.emitSDK('roster:avatar', { jid: mapping.jid, avatar: cachedUrl, avatarHash: mapping.hash })
+          } else {
+            // At least set the hash so we can try fetching later
+            this.deps.emitSDK('roster:avatar', { jid: mapping.jid, avatar: null, avatarHash: mapping.hash })
+          }
         }
       }
     } catch (error) {

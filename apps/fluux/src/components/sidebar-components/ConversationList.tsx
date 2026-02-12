@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, memo } from 'react'
+import { useState, useRef, useCallback, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useListKeyboardNav } from '@/hooks'
 import {
@@ -40,21 +40,12 @@ export function ConversationList() {
     drafts,
   } = useChat()
   const { setActiveRoom, getRoom } = useRoom()
-  const { contacts, restoreContactAvatarFromCache } = useRoster()
+  const { contacts } = useRoster()
   const listRef = useRef<HTMLDivElement>(null)
   const zoneRef = useSidebarZone()
 
   // Create maps for quick lookup
   const contactMap = new Map(contacts.map(c => [c.jid, c]))
-
-  // Restore contact avatars from cache for contacts that have avatarHash but no avatar blob URL
-  useEffect(() => {
-    for (const contact of contacts) {
-      if (contact.avatarHash && !contact.avatar) {
-        restoreContactAvatarFromCache(contact.jid, contact.avatarHash)
-      }
-    }
-  }, [contacts, restoreContactAvatarFromCache])
 
   const handleConversationClick = useCallback((convId: string) => {
     setActiveRoom(null)

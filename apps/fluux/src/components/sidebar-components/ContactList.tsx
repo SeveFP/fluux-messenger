@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react'
+import { useState, useRef, useCallback, useMemo, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useContextMenu, useTypeToFocus, useListKeyboardNav } from '@/hooks'
 import { useRoster, useAdmin, type Contact } from '@fluux/sdk'
@@ -18,7 +18,7 @@ interface ContactListProps {
 
 export function ContactList({ onStartChat, onSelectContact, onManageUser, activeContactJid }: ContactListProps) {
   const { t } = useTranslation()
-  const { sortedContacts, removeContact, renameContact, restoreContactAvatarFromCache } = useRoster()
+  const { sortedContacts, removeContact, renameContact } = useRoster()
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -26,15 +26,6 @@ export function ContactList({ onStartChat, onSelectContact, onManageUser, active
 
   // Type-to-focus: focus search input when user starts typing anywhere
   useTypeToFocus(searchInputRef)
-
-  // Restore contact avatars from cache for contacts that have avatarHash but no avatar blob URL
-  useEffect(() => {
-    for (const contact of sortedContacts) {
-      if (contact.avatarHash && !contact.avatar) {
-        restoreContactAvatarFromCache(contact.jid, contact.avatarHash)
-      }
-    }
-  }, [sortedContacts, restoreContactAvatarFromCache])
 
   // Filter contacts based on search query
   const filteredContacts = useMemo(() => {

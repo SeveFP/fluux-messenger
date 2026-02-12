@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react'
+import { useState, useRef, useCallback, useMemo, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useContextMenu, useListKeyboardNav } from '@/hooks'
 import {
@@ -27,21 +27,12 @@ import {
 
 export function RoomsList() {
   const { t } = useTranslation()
-  const { allRooms: rooms, joinRoom, leaveRoom, setBookmark, removeBookmark, activeRoomJid, setActiveRoom, restoreRoomAvatarFromCache, drafts } = useRoom()
+  const { allRooms: rooms, joinRoom, leaveRoom, setBookmark, removeBookmark, activeRoomJid, setActiveRoom, drafts } = useRoom()
   // NOTE: Use direct store subscription to avoid re-renders from activeMessages changes
   const setActiveConversation = useChatStore((s) => s.setActiveConversation)
   const [editingRoom, setEditingRoom] = useState<Room | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const zoneRef = useSidebarZone()
-
-  // Restore room avatars from cache for rooms that have avatarHash but no avatar blob URL
-  useEffect(() => {
-    for (const room of rooms) {
-      if (room.avatarHash && !room.avatar) {
-        restoreRoomAvatarFromCache(room.jid, room.avatarHash)
-      }
-    }
-  }, [rooms, restoreRoomAvatarFromCache])
 
   // Separate quick chats, joined/joining rooms, and bookmarked-only rooms
   const quickChats = useMemo(() => rooms.filter(r => r.isQuickChat), [rooms])
