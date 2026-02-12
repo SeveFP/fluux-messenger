@@ -23,6 +23,8 @@ interface UseKeyboardShortcutsOptions {
   onOpenPresenceMenu: () => void
   sidebarView: SidebarView
   onSidebarViewChange: (view: SidebarView) => void
+  navigateToMessages: (jid?: string) => void
+  navigateToRooms: (jid?: string) => void
   // Escape hierarchy state and handlers
   escapeHierarchy?: {
     isCommandPaletteOpen: boolean
@@ -133,6 +135,7 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions): Shor
     if (unreadConv) {
       setActiveRoom(null)
       setActiveConversation(unreadConv.id)
+      options.navigateToMessages(unreadConv.id)
       return
     }
 
@@ -153,8 +156,9 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions): Shor
     if (unreadRooms.length > 0) {
       setActiveConversation(null)
       setActiveRoom(unreadRooms[0].room.jid)
+      options.navigateToRooms(unreadRooms[0].room.jid)
     }
-  }, [setActiveConversation, setActiveRoom])
+  }, [setActiveConversation, setActiveRoom, options.navigateToMessages, options.navigateToRooms])
 
   // Navigate to previous item in current sidebar view (stops at top, no wrap)
   // NOTE: Uses getState() to read current data without creating subscriptions

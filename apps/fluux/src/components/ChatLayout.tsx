@@ -417,6 +417,8 @@ function ChatLayoutContent() {
     onOpenPresenceMenu: handleTogglePresenceMenu,
     sidebarView,
     onSidebarViewChange: handleSidebarViewChange,
+    navigateToMessages,
+    navigateToRooms,
     escapeHierarchy: {
       isCommandPaletteOpen: showCommandPalette,
       onCloseCommandPalette: () => modalActions.close('commandPalette'),

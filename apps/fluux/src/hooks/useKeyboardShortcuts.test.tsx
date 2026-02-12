@@ -91,6 +91,8 @@ describe('useKeyboardShortcuts', () => {
     onOpenPresenceMenu: vi.fn(),
     sidebarView: 'messages' as const,
     onSidebarViewChange: vi.fn(),
+    navigateToMessages: vi.fn(),
+    navigateToRooms: vi.fn(),
   })
 
   describe('Next Unread (Cmd+U)', () => {
@@ -101,8 +103,9 @@ describe('useKeyboardShortcuts', () => {
       ]
       mockState.activeConversationId = 'user1@example.com'
 
+      const options = createDefaultOptions()
       const { result } = renderHook(() =>
-        useKeyboardShortcuts(createDefaultOptions())
+        useKeyboardShortcuts(options)
       )
 
       const nextUnreadShortcut = result.current.find(
@@ -113,6 +116,7 @@ describe('useKeyboardShortcuts', () => {
 
       expect(mockState.setActiveConversation).toHaveBeenCalledWith('user2@example.com')
       expect(mockState.setActiveRoom).toHaveBeenCalledWith(null)
+      expect(options.navigateToMessages).toHaveBeenCalledWith('user2@example.com')
     })
 
     it('should navigate to room with mentions', () => {
@@ -123,8 +127,9 @@ describe('useKeyboardShortcuts', () => {
       ]
       mockState.activeRoomJid = 'room1@conference.example.com'
 
+      const options = createDefaultOptions()
       const { result } = renderHook(() =>
-        useKeyboardShortcuts(createDefaultOptions())
+        useKeyboardShortcuts(options)
       )
 
       const nextUnreadShortcut = result.current.find(
@@ -134,6 +139,7 @@ describe('useKeyboardShortcuts', () => {
 
       expect(mockState.setActiveRoom).toHaveBeenCalledWith('room2@conference.example.com')
       expect(mockState.setActiveConversation).toHaveBeenCalledWith(null)
+      expect(options.navigateToRooms).toHaveBeenCalledWith('room2@conference.example.com')
     })
 
     it('should navigate to room with unreadCount when notifyAll is enabled (regression test)', () => {
@@ -144,8 +150,9 @@ describe('useKeyboardShortcuts', () => {
       ]
       mockState.activeRoomJid = 'room1@conference.example.com'
 
+      const options = createDefaultOptions()
       const { result } = renderHook(() =>
-        useKeyboardShortcuts(createDefaultOptions())
+        useKeyboardShortcuts(options)
       )
 
       const nextUnreadShortcut = result.current.find(
@@ -156,6 +163,7 @@ describe('useKeyboardShortcuts', () => {
       // Should navigate to room2 because it has unreadCount > 0
       expect(mockState.setActiveRoom).toHaveBeenCalledWith('room2@conference.example.com')
       expect(mockState.setActiveConversation).toHaveBeenCalledWith(null)
+      expect(options.navigateToRooms).toHaveBeenCalledWith('room2@conference.example.com')
     })
 
     it('should prioritize conversations over rooms', () => {
@@ -168,8 +176,9 @@ describe('useKeyboardShortcuts', () => {
       mockState.activeConversationId = null
       mockState.activeRoomJid = null
 
+      const options = createDefaultOptions()
       const { result } = renderHook(() =>
-        useKeyboardShortcuts(createDefaultOptions())
+        useKeyboardShortcuts(options)
       )
 
       const nextUnreadShortcut = result.current.find(
@@ -180,6 +189,8 @@ describe('useKeyboardShortcuts', () => {
       // Should navigate to conversation first, not room
       expect(mockState.setActiveConversation).toHaveBeenCalledWith('user1@example.com')
       expect(mockState.setActiveRoom).toHaveBeenCalledWith(null)
+      expect(options.navigateToMessages).toHaveBeenCalledWith('user1@example.com')
+      expect(options.navigateToRooms).not.toHaveBeenCalled()
     })
 
     it('should skip current conversation when finding next unread', () => {
@@ -189,8 +200,9 @@ describe('useKeyboardShortcuts', () => {
       ]
       mockState.activeConversationId = 'user1@example.com' // Current has unread but should skip
 
+      const options = createDefaultOptions()
       const { result } = renderHook(() =>
-        useKeyboardShortcuts(createDefaultOptions())
+        useKeyboardShortcuts(options)
       )
 
       const nextUnreadShortcut = result.current.find(
@@ -200,6 +212,7 @@ describe('useKeyboardShortcuts', () => {
 
       // Should navigate to user2, not stay on user1
       expect(mockState.setActiveConversation).toHaveBeenCalledWith('user2@example.com')
+      expect(options.navigateToMessages).toHaveBeenCalledWith('user2@example.com')
     })
 
     it('should skip current room when finding next unread', () => {
@@ -210,8 +223,9 @@ describe('useKeyboardShortcuts', () => {
       ]
       mockState.activeRoomJid = 'room1@conference.example.com' // Current has unread but should skip
 
+      const options = createDefaultOptions()
       const { result } = renderHook(() =>
-        useKeyboardShortcuts(createDefaultOptions())
+        useKeyboardShortcuts(options)
       )
 
       const nextUnreadShortcut = result.current.find(
@@ -221,6 +235,7 @@ describe('useKeyboardShortcuts', () => {
 
       // Should navigate to room2, not stay on room1
       expect(mockState.setActiveRoom).toHaveBeenCalledWith('room2@conference.example.com')
+      expect(options.navigateToRooms).toHaveBeenCalledWith('room2@conference.example.com')
     })
 
     it('should do nothing when no unread items exist', () => {
@@ -231,8 +246,9 @@ describe('useKeyboardShortcuts', () => {
         { jid: 'room1@conference.example.com', mentionsCount: 0, unreadCount: 0 },
       ]
 
+      const options = createDefaultOptions()
       const { result } = renderHook(() =>
-        useKeyboardShortcuts(createDefaultOptions())
+        useKeyboardShortcuts(options)
       )
 
       const nextUnreadShortcut = result.current.find(
@@ -243,6 +259,8 @@ describe('useKeyboardShortcuts', () => {
       // Should not navigate anywhere
       expect(mockState.setActiveConversation).not.toHaveBeenCalled()
       expect(mockState.setActiveRoom).not.toHaveBeenCalledWith(expect.any(String))
+      expect(options.navigateToMessages).not.toHaveBeenCalled()
+      expect(options.navigateToRooms).not.toHaveBeenCalled()
     })
   })
 
