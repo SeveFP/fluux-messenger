@@ -41,7 +41,7 @@
 | Language Settings | Login Screen | Theme System |
 |-------------------|---|-------------|
 | <a href="assets/readme/languages.png"><img src="assets/readme/languages.png" width="250" style="border-radius: 8px;" alt="Language Settings"/></a> | <a href="assets/readme/login.png"><img src="assets/readme/login.png" width="250" style="border-radius: 8px;" alt="Login Screen"/></a> | <a href="assets/readme/split.png"><img src="assets/readme/split.png" width="250" style="border-radius: 8px;" alt="Theme System"/></a> |
-| *26 languages including all EU official languages* | *Simple Login Interface* | *Light and dark themes, more to come* |
+| *27 languages including all EU official languages* | *Simple Login Interface* | *Light and dark themes, more to come* |
 
 | Admin Server Commands | Chat Rooms Management | Users Management |
 |----------------------|-----------------------|------------------|
