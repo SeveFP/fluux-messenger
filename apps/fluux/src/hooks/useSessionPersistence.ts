@@ -21,6 +21,75 @@ interface SessionData {
   // Note: SM state is now managed by SDK's storage adapter
 }
 
+/**
+ * Extract domain from a WebSocket URL.
+ * e.g., "wss://example.com/ws" -> "example.com"
+ *       "wss://example.com:5443/ws" -> "example.com"
+ */
+function extractDomainFromWebSocketUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    return parsed.hostname
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Check if a server string is a WebSocket URL.
+ */
+function isWebSocketUrl(server: string): boolean {
+  return server.startsWith('ws://') || server.startsWith('wss://')
+}
+
+/**
+ * Migrate server string format for desktop app.
+ *
+ * In v0.13.0, desktop app switched to TCP proxy which expects bare domain names
+ * (e.g., "example.com") instead of WebSocket URLs (e.g., "wss://example.com/ws").
+ *
+ * Old sessions may have WebSocket URLs stored. This function converts them to
+ * bare domains so the TCP proxy can handle SRV resolution properly.
+ *
+ * NOTE: This migration function may be changed or removed after all clients
+ * have been updated to 0.13.0+.
+ *
+ * @returns The migrated server string, or the original if no migration needed
+ */
+function migrateServerFormat(server: string, jid: string): string {
+  // Only migrate on desktop (where TCP proxy is available)
+  if (!isTauri()) {
+    return server
+  }
+
+  // If already a bare domain or explicit TCP URI, no migration needed
+  if (!isWebSocketUrl(server)) {
+    return server
+  }
+
+  // Extract domain from WebSocket URL
+  const domain = extractDomainFromWebSocketUrl(server)
+  if (!domain) {
+    // Couldn't parse URL, return original
+    return server
+  }
+
+  // Get domain from JID for comparison
+  const jidDomain = jid.includes('@') ? jid.split('@')[1] : jid
+
+  // If the WebSocket URL's domain matches the JID domain, use bare domain
+  // This handles the common case: wss://example.com/ws -> example.com
+  if (domain === jidDomain || domain.endsWith('.' + jidDomain)) {
+    console.log(`[Session] Migrating server format: "${server}" -> "${jidDomain}"`)
+    return jidDomain
+  }
+
+  // For custom server URLs (different domain than JID), extract just the domain
+  // e.g., wss://xmpp.example.com/ws -> xmpp.example.com
+  console.log(`[Session] Migrating server format: "${server}" -> "${domain}"`)
+  return domain
+}
+
 interface ProfileData {
   ownAvatarHash: string | null
   ownNickname: string | null
@@ -337,12 +406,23 @@ export function getSavedServerInfo(): ServerDiscoveryData | null {
 
 /**
  * Gets stored session credentials.
+ * Applies server format migration if needed (for 0.13.0+ compatibility).
  */
 export function getSession(): SessionData | null {
   try {
     const stored = sessionStorage.getItem(SESSION_KEY)
     if (!stored) return null
-    return JSON.parse(stored) as SessionData
+    const session = JSON.parse(stored) as SessionData
+
+    // Apply server format migration for desktop app
+    const migratedServer = migrateServerFormat(session.server, session.jid)
+    if (migratedServer !== session.server) {
+      // Save migrated session back to storage
+      session.server = migratedServer
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(session))
+    }
+
+    return session
   } catch {
     return null
   }
@@ -494,6 +574,16 @@ export function useSessionPersistence(): void {
       isResumptionRef.current = false
     }
   }, [status])
+
+  // Clear session when reconnection attempts are exhausted
+  // This prevents infinite loop where stale session triggers reconnect on page reload
+  useEffect(() => {
+    const unsubscribe = client.subscribe('connection:reconnect-exhausted', ({ attempts }) => {
+      console.log(`[Session] Reconnection exhausted after ${attempts} attempts, clearing session`)
+      clearSession()
+    })
+    return unsubscribe
+  }, [client])
 
   // Note: SM state persistence is now handled by SDK's storage adapter.
   // The SDK automatically persists SM state on enable/resume and before page unload.

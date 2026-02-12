@@ -42,6 +42,11 @@ export interface ConnectionEvents {
     delayMs: number
   }
 
+  /** Reconnection attempts exhausted - terminal failure, session should be cleared */
+  'connection:reconnect-exhausted': {
+    attempts: number
+  }
+
   /** Server info discovered */
   'connection:server-info': {
     info: ServerInfo | null
