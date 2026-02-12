@@ -1273,8 +1273,6 @@ export class Connection extends BaseModule {
       this.stores.connection.setError(errorMsg)
       this.stores.connection.setReconnectState(0, null)
       this.deps.emitSDK('connection:status', { status: 'error', error: errorMsg })
-      // Emit exhausted event so app can clear session storage and prevent restart loop
-      this.deps.emitSDK('connection:reconnect-exhausted', { attempts: MAX_RECONNECT_ATTEMPTS })
       this.isReconnecting = false
       this.reconnectAttempt = 0
       this.credentials = null
