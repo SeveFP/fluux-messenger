@@ -1219,9 +1219,22 @@ export class Connection extends BaseModule {
         } else if (rawReason) {
           reason = String(rawReason)
         }
-        const errorMsg = reason
-          ? `Connection failed: ${reason}`
-          : 'Connection failed. Check your server address and try again.'
+        // When using the local proxy (tls/starttls), an immediate WebSocket close
+        // with code 1006 typically means the OS firewall blocked the connection
+        // to the local proxy listener (common on Windows first launch).
+        const proxyServer = this.credentials?.server ?? ''
+        const isProxyMode = !!this.deps.proxyAdapter
+          && (proxyServer.startsWith('ws://127.0.0.1:') || proxyServer.startsWith('ws://[::1]:'))
+        const isAbnormalClose = rawReason && typeof rawReason === 'object' && 'code' in rawReason
+          && (rawReason as { code: number }).code === 1006
+        let errorMsg: string
+        if (isProxyMode && isAbnormalClose) {
+          errorMsg = 'Connection failed: Unable to reach local proxy. If a firewall prompt appeared, allow the connection and try again.'
+        } else if (reason) {
+          errorMsg = `Connection failed: ${reason}`
+        } else {
+          errorMsg = 'Connection failed. Check your server address and try again.'
+        }
         this.stores.connection.setStatus('error')
         this.stores.connection.setError(errorMsg)
         this.stores.console.addEvent('Initial connection failed (no auto-reconnect)', 'connection')

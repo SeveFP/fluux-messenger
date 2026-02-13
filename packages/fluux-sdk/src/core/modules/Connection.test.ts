@@ -399,6 +399,47 @@ describe('XMPPClient Connection', () => {
       expect(errorArg).toBe('Connection failed: WebSocket closed (code: 1008, Policy violation)')
     })
 
+    it('should show firewall hint when proxy mode connection fails with code 1006', async () => {
+      // Create a client with proxy adapter (simulating Tauri desktop mode)
+      const mockProxyAdapter = {
+        startProxy: vi.fn().mockResolvedValue({
+          url: 'ws://127.0.0.1:12345',
+          connectionMethod: 'starttls',
+          resolvedEndpoint: 'tcp://xmpp.example.com:5222',
+        }),
+        stopProxy: vi.fn().mockResolvedValue(undefined),
+      }
+      const proxyClient = new XMPPClient({ debug: false, proxyAdapter: mockProxyAdapter })
+      proxyClient.bindStores(mockStores)
+
+      // Start connection — proxy starts successfully but xmpp.js connect fails
+      // (simulates firewall blocking the WebView → localhost proxy connection)
+      mockXmppClientInstance.start.mockRejectedValue(new Error('Connection refused'))
+
+      await expect(
+        proxyClient.connect({
+          jid: 'user@example.com',
+          password: 'secret',
+          server: 'example.com',
+          skipDiscovery: true,
+        })
+      ).rejects.toThrow('Connection refused')
+
+      vi.mocked(mockStores.connection.setError).mockClear()
+
+      // Simulate disconnect with CloseEvent code 1006 (abnormal closure — firewall blocked it)
+      mockXmppClientInstance._emit('disconnect', {
+        clean: false,
+        reason: { code: 1006, reason: '' },
+      })
+
+      const errorArg = vi.mocked(mockStores.connection.setError).mock.calls[0][0]
+      expect(errorArg).toContain('Unable to reach local proxy')
+      expect(errorArg).toContain('firewall')
+
+      proxyClient.cancelReconnect()
+    })
+
     it('should auto-reconnect when connection drops after successful connection', async () => {
       // First, connect successfully
       const connectPromise = xmppClient.connect({
