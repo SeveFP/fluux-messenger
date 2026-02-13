@@ -49,7 +49,10 @@ mod idle {
         let output = Command::new("ioreg")
             .args(["-c", "IOHIDSystem"])
             .output()
-            .map_err(|e| format!("Failed to run ioreg: {}", e))?;
+            .map_err(|e| {
+                tracing::warn!("Idle: failed to run ioreg: {}", e);
+                format!("Failed to run ioreg: {}", e)
+            })?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
 
@@ -66,6 +69,7 @@ mod idle {
             }
         }
 
+        tracing::warn!("Idle: HIDIdleTime not found in ioreg output");
         Err("HIDIdleTime not found".to_string())
     }
 }
@@ -77,7 +81,10 @@ mod idle {
     pub fn get_idle_seconds() -> Result<u64, String> {
         UserIdle::get_time()
             .map(|idle| idle.as_seconds())
-            .map_err(|e| e.to_string())
+            .map_err(|e| {
+                tracing::warn!("Idle: failed to get user idle time: {}", e);
+                e.to_string()
+            })
     }
 }
 
@@ -102,21 +109,37 @@ pub struct StoredCredentials {
 #[tauri::command]
 fn save_credentials(jid: String, password: String, server: Option<String>) -> Result<(), String> {
     let entry = Entry::new(KEYRING_SERVICE, &jid)
-        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
+        .map_err(|e| {
+            tracing::error!("Keychain: failed to create entry for {}: {}", jid, e);
+            format!("Failed to create keyring entry: {}", e)
+        })?;
 
     let credentials = StoredCredentials { jid: jid.clone(), password, server };
     let json = serde_json::to_string(&credentials)
-        .map_err(|e| format!("Failed to serialize credentials: {}", e))?;
+        .map_err(|e| {
+            tracing::error!("Keychain: failed to serialize credentials for {}: {}", jid, e);
+            format!("Failed to serialize credentials: {}", e)
+        })?;
 
     entry.set_password(&json)
-        .map_err(|e| format!("Failed to save to keychain: {}", e))?;
+        .map_err(|e| {
+            tracing::error!("Keychain: failed to save credentials for {}: {}", jid, e);
+            format!("Failed to save to keychain: {}", e)
+        })?;
 
     // Also store the JID as the "last user" so we know which account to load
     let last_user_entry = Entry::new(KEYRING_SERVICE, "last_user")
-        .map_err(|e| format!("Failed to create last_user entry: {}", e))?;
+        .map_err(|e| {
+            tracing::error!("Keychain: failed to create last_user entry: {}", e);
+            format!("Failed to create last_user entry: {}", e)
+        })?;
     last_user_entry.set_password(&credentials.jid)
-        .map_err(|e| format!("Failed to save last_user: {}", e))?;
+        .map_err(|e| {
+            tracing::error!("Keychain: failed to save last_user: {}", e);
+            format!("Failed to save last_user: {}", e)
+        })?;
 
+    tracing::info!("Keychain: saved credentials for {}", jid);
     Ok(())
 }
 
@@ -125,26 +148,48 @@ fn save_credentials(jid: String, password: String, server: Option<String>) -> Re
 fn get_credentials() -> Result<Option<StoredCredentials>, String> {
     // First get the last used JID
     let last_user_entry = Entry::new(KEYRING_SERVICE, "last_user")
-        .map_err(|e| format!("Failed to create last_user entry: {}", e))?;
+        .map_err(|e| {
+            tracing::error!("Keychain: failed to create last_user entry: {}", e);
+            format!("Failed to create last_user entry: {}", e)
+        })?;
 
     let jid = match last_user_entry.get_password() {
         Ok(jid) => jid,
-        Err(keyring::Error::NoEntry) => return Ok(None),
-        Err(e) => return Err(format!("Failed to get last_user: {}", e)),
+        Err(keyring::Error::NoEntry) => {
+            tracing::debug!("Keychain: no last_user entry found");
+            return Ok(None);
+        }
+        Err(e) => {
+            tracing::error!("Keychain: failed to get last_user: {}", e);
+            return Err(format!("Failed to get last_user: {}", e));
+        }
     };
 
     // Now get the credentials for that JID
     let entry = Entry::new(KEYRING_SERVICE, &jid)
-        .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
+        .map_err(|e| {
+            tracing::error!("Keychain: failed to create entry for {}: {}", jid, e);
+            format!("Failed to create keyring entry: {}", e)
+        })?;
 
     match entry.get_password() {
         Ok(json) => {
             let credentials: StoredCredentials = serde_json::from_str(&json)
-                .map_err(|e| format!("Failed to parse credentials: {}", e))?;
+                .map_err(|e| {
+                    tracing::error!("Keychain: failed to parse credentials for {}: {}", jid, e);
+                    format!("Failed to parse credentials: {}", e)
+                })?;
+            tracing::info!("Keychain: loaded credentials for {}", jid);
             Ok(Some(credentials))
         }
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(e) => Err(format!("Failed to get credentials: {}", e)),
+        Err(keyring::Error::NoEntry) => {
+            tracing::debug!("Keychain: no credentials found for {}", jid);
+            Ok(None)
+        }
+        Err(e) => {
+            tracing::error!("Keychain: failed to get credentials for {}: {}", jid, e);
+            Err(format!("Failed to get credentials: {}", e))
+        }
     }
 }
 
@@ -153,17 +198,33 @@ fn get_credentials() -> Result<Option<StoredCredentials>, String> {
 fn delete_credentials() -> Result<(), String> {
     // Get the last used JID
     let last_user_entry = Entry::new(KEYRING_SERVICE, "last_user")
-        .map_err(|e| format!("Failed to create last_user entry: {}", e))?;
+        .map_err(|e| {
+            tracing::error!("Keychain: failed to create last_user entry: {}", e);
+            format!("Failed to create last_user entry: {}", e)
+        })?;
 
     if let Ok(jid) = last_user_entry.get_password() {
         // Delete the credentials entry
         let entry = Entry::new(KEYRING_SERVICE, &jid)
-            .map_err(|e| format!("Failed to create keyring entry: {}", e))?;
-        let _ = entry.delete_credential(); // Ignore error if not found
+            .map_err(|e| {
+                tracing::error!("Keychain: failed to create entry for {}: {}", jid, e);
+                format!("Failed to create keyring entry: {}", e)
+            })?;
+        match entry.delete_credential() {
+            Ok(()) => tracing::info!("Keychain: deleted credentials for {}", jid),
+            Err(keyring::Error::NoEntry) => tracing::debug!("Keychain: no credentials to delete for {}", jid),
+            Err(e) => tracing::warn!("Keychain: failed to delete credentials for {}: {}", jid, e),
+        }
+    } else {
+        tracing::debug!("Keychain: no last_user entry to look up for deletion");
     }
 
     // Delete the last_user entry
-    let _ = last_user_entry.delete_credential(); // Ignore error if not found
+    match last_user_entry.delete_credential() {
+        Ok(()) => tracing::debug!("Keychain: deleted last_user entry"),
+        Err(keyring::Error::NoEntry) => tracing::debug!("Keychain: no last_user entry to delete"),
+        Err(e) => tracing::warn!("Keychain: failed to delete last_user entry: {}", e),
+    }
 
     Ok(())
 }
@@ -210,13 +271,19 @@ fn fetch_url_metadata(url: String) -> Result<UrlMetadata, String> {
         .timeout(std::time::Duration::from_secs(10))
         .user_agent("Mozilla/5.0 (compatible; FluuxBot/1.0; +https://fluux.io)")
         .build()
-        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+        .map_err(|e| {
+            tracing::warn!(url = %url, "Link preview: failed to create HTTP client: {}", e);
+            format!("Failed to create HTTP client: {}", e)
+        })?;
 
     // Fetch the URL
     let response = client
         .get(&url)
         .send()
-        .map_err(|e| format!("Failed to fetch URL: {}", e))?;
+        .map_err(|e| {
+            tracing::warn!(url = %url, "Link preview: failed to fetch URL: {}", e);
+            format!("Failed to fetch URL: {}", e)
+        })?;
 
     // Check content type - only process HTML
     let content_type = response
@@ -226,12 +293,16 @@ fn fetch_url_metadata(url: String) -> Result<UrlMetadata, String> {
         .unwrap_or("");
 
     if !content_type.contains("text/html") {
+        tracing::debug!(url = %url, content_type, "Link preview: non-HTML content type, skipping");
         return Err("URL does not return HTML content".to_string());
     }
 
     let html = response
         .text()
-        .map_err(|e| format!("Failed to read response: {}", e))?;
+        .map_err(|e| {
+            tracing::warn!(url = %url, "Link preview: failed to read response body: {}", e);
+            format!("Failed to read response: {}", e)
+        })?;
 
     // Parse HTML and extract OG metadata
     let document = Html::parse_document(&html);
@@ -321,6 +392,7 @@ fn fetch_url_metadata(url: String) -> Result<UrlMetadata, String> {
     if metadata.title.is_some() {
         Ok(metadata)
     } else {
+        tracing::debug!(url = %url, "Link preview: no title found in page metadata");
         Err("Could not extract metadata from URL".to_string())
     }
 }
@@ -685,7 +757,7 @@ fn main() {
         .setup(move |app| {
             // Handle --clear-storage CLI flag (useful for debugging connection issues)
             if clear_storage {
-                println!("[CLI] --clear-storage flag detected, will clear local data on startup");
+                tracing::info!("CLI: --clear-storage flag detected, will clear local data on startup");
                 // Emit event to frontend after window is ready
                 let app_handle = app.handle().clone();
                 std::thread::spawn(move || {
@@ -725,7 +797,10 @@ fn main() {
             // This allows the app to open when users click xmpp: links
             #[cfg(desktop)]
             {
-                let _ = app.deep_link().register("xmpp");
+                match app.deep_link().register("xmpp") {
+                    Ok(_) => tracing::info!("Deep link: registered xmpp: URI scheme"),
+                    Err(e) => tracing::warn!("Deep link: failed to register xmpp: URI scheme: {}", e),
+                }
             }
 
             // macOS: Create custom menu with Help submenu
