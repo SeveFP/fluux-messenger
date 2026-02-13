@@ -114,32 +114,46 @@ async fn resolve_xmpp_server(domain: &str) -> Result<XmppEndpoint, String> {
 
     // Try direct TLS SRV first
     let srv_name = format!("_xmpps-client._tcp.{}", domain);
-    if let Ok(lookup) = resolver.srv_lookup(&srv_name).await {
-        if let Some(srv) = lookup.iter().next() {
-            info!(domain, host = %srv.target(), port = srv.port(), "SRV resolved (direct TLS)");
-            return Ok(XmppEndpoint {
-                host: srv.target().to_string().trim_end_matches('.').to_string(),
-                port: srv.port(),
-                mode: ConnectionMode::DirectTls,
-            });
+    info!(domain, srv = %srv_name, "SRV lookup: trying direct TLS");
+    match resolver.srv_lookup(&srv_name).await {
+        Ok(lookup) => {
+            if let Some(srv) = lookup.iter().next() {
+                info!(domain, host = %srv.target(), port = srv.port(), "SRV resolved (direct TLS)");
+                return Ok(XmppEndpoint {
+                    host: srv.target().to_string().trim_end_matches('.').to_string(),
+                    port: srv.port(),
+                    mode: ConnectionMode::DirectTls,
+                });
+            }
+            info!(domain, srv = %srv_name, "SRV lookup returned empty results");
+        }
+        Err(e) => {
+            info!(domain, srv = %srv_name, error = %e, "SRV lookup failed");
         }
     }
 
     // Try STARTTLS SRV
     let srv_name = format!("_xmpp-client._tcp.{}", domain);
-    if let Ok(lookup) = resolver.srv_lookup(&srv_name).await {
-        if let Some(srv) = lookup.iter().next() {
-            info!(domain, host = %srv.target(), port = srv.port(), "SRV resolved (STARTTLS)");
-            return Ok(XmppEndpoint {
-                host: srv.target().to_string().trim_end_matches('.').to_string(),
-                port: srv.port(),
-                mode: ConnectionMode::Tcp,
-            });
+    info!(domain, srv = %srv_name, "SRV lookup: trying STARTTLS");
+    match resolver.srv_lookup(&srv_name).await {
+        Ok(lookup) => {
+            if let Some(srv) = lookup.iter().next() {
+                info!(domain, host = %srv.target(), port = srv.port(), "SRV resolved (STARTTLS)");
+                return Ok(XmppEndpoint {
+                    host: srv.target().to_string().trim_end_matches('.').to_string(),
+                    port: srv.port(),
+                    mode: ConnectionMode::Tcp,
+                });
+            }
+            info!(domain, srv = %srv_name, "SRV lookup returned empty results");
+        }
+        Err(e) => {
+            info!(domain, srv = %srv_name, error = %e, "SRV lookup failed");
         }
     }
 
     // Fallback to direct connection on standard XMPP client port (RFC 6120)
-    info!(domain, "No SRV records found, using fallback: {}:5222 (STARTTLS)", domain);
+    warn!(domain, "No SRV records found, using fallback: {}:5222 (STARTTLS)", domain);
     Ok(XmppEndpoint {
         host: domain.to_string(),
         port: 5222,
