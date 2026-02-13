@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode } from 'react'
+import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useIsMobileWeb } from '../hooks/useIsMobileWeb'
 
@@ -73,13 +73,33 @@ export function Tooltip({
     }, delay)
   }
 
-  const hideTooltip = () => {
+  const hideTooltip = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current)
       timeoutRef.current = null
     }
     setIsVisible(false)
-  }
+  }, [])
+
+  // Hide tooltip on scroll, window blur, or any pointer down — these events
+  // can cause the trigger to move or disappear without firing mouseLeave.
+  useEffect(() => {
+    if (!isVisible) return
+
+    const handleScroll = () => hideTooltip()
+    const handleBlur = () => hideTooltip()
+    const handlePointerDown = () => hideTooltip()
+
+    // Use capture phase so we catch scroll on any ancestor before it bubbles
+    window.addEventListener('scroll', handleScroll, true)
+    window.addEventListener('blur', handleBlur)
+    window.addEventListener('pointerdown', handlePointerDown)
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('blur', handleBlur)
+      window.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [isVisible, hideTooltip])
 
   // Calculate position when tooltip becomes visible
   useEffect(() => {
@@ -202,6 +222,7 @@ export function Tooltip({
             left: coords.x,
             top: coords.y,
             maxWidth,
+            pointerEvents: 'none',
             // CSS variable for arrow color matching
             ['--tooltip-bg' as string]: 'var(--fluux-sidebar)',
             zIndex: 9999,
