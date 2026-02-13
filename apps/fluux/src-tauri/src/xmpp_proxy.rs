@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::RwLock;
@@ -18,6 +18,40 @@ use serde::Serialize;
 use tracing::{debug, error, info, warn};
 use trust_dns_resolver::TokioAsyncResolver;
 use trust_dns_resolver::config::*;
+
+/// TCP connection timeout for outbound XMPP server connections.
+///
+/// Applied to both STARTTLS (port 5222) and direct TLS (port 5223) TCP connect calls.
+/// Without this, the OS default applies — which on Windows can be 30-120 seconds for
+/// unreachable hosts, leaving the user with no feedback.
+///
+/// 15 seconds is generous enough for high-latency international connections but short
+/// enough to provide timely failure feedback. The STARTTLS negotiation phase has its
+/// own separate 10-second timeout (see `perform_starttls`).
+const TCP_CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// Inactivity watchdog timeout for the WebSocket-TLS bridge.
+///
+/// If no data flows in either direction for this duration, the connection is
+/// force-closed to release the single-connection lock. This prevents zombie
+/// connections from permanently blocking the proxy.
+///
+/// 5 minutes is generous: XMPP with XEP-0198 Stream Management sends periodic
+/// `<r/>` pings (typically every 60-90 seconds). A 5-minute silence means the
+/// connection is definitively dead, not just quiet.
+const BRIDGE_INACTIVITY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
+
+/// How often the watchdog checks for inactivity.
+/// Checking every 30 seconds is lightweight and provides reasonable granularity.
+const WATCHDOG_CHECK_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Current time as milliseconds since UNIX epoch (for activity tracking).
+fn now_millis() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
 
 /// Initialize rustls crypto provider (must be called once at startup)
 fn init_crypto_provider() {
@@ -190,7 +224,20 @@ async fn upgrade_to_tls(
 
     connector.connect(server_name, tcp_stream)
         .await
-        .map_err(|e| format!("TLS handshake failed: {}", e))
+        .map_err(|e| {
+            let error_detail = format!("{}", e);
+            let classification = if error_detail.contains("ertificate") {
+                "certificate_error"
+            } else if error_detail.contains("timed out") || error_detail.contains("timeout") {
+                "timeout"
+            } else if error_detail.contains("refused") || error_detail.contains("reset") {
+                "connection_refused"
+            } else {
+                "other"
+            };
+            error!(host, error = %e, error_class = classification, "TLS handshake failed");
+            format!("TLS handshake failed with {} ({}): {}", host, classification, e)
+        })
 }
 
 /// RAII guard that decrements the connection counter when dropped.
@@ -285,10 +332,27 @@ impl XmppProxy {
             ConnectionMode::Tcp => format!("tcp://{}:{}", endpoint.host, endpoint.port),
         };
 
-        // Bind to localhost on a random port
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .await
-            .map_err(|e| format!("Failed to bind WebSocket server: {}", e))?;
+        // Bind to localhost on a random port.
+        // Try IPv6 loopback first, fall back to IPv4. On some systems (especially
+        // Windows with IPv6-preferred network stacks), IPv6 loopback may be faster
+        // or preferred by the WebView.
+        let (listener, loopback_host) = match TcpListener::bind("[::1]:0").await {
+            Ok(l) => {
+                info!("WebSocket server bound to IPv6 loopback ([::1])");
+                (l, "[::1]")
+            }
+            Err(ipv6_err) => {
+                debug!(error = %ipv6_err, "IPv6 loopback bind failed, falling back to IPv4");
+                let l = TcpListener::bind("127.0.0.1:0")
+                    .await
+                    .map_err(|e| format!(
+                        "Failed to bind WebSocket server (IPv6: {}, IPv4: {})",
+                        ipv6_err, e
+                    ))?;
+                info!("WebSocket server bound to IPv4 loopback (127.0.0.1)");
+                (l, "127.0.0.1")
+            }
+        };
 
         let local_addr = listener
             .local_addr()
@@ -332,7 +396,7 @@ impl XmppProxy {
         self.task = Some(task);
 
         Ok(ProxyStartResult {
-            url: format!("ws://127.0.0.1:{}", local_addr.port()),
+            url: format!("ws://{}:{}", loopback_host, local_addr.port()),
             connection_method,
             resolved_endpoint,
         })
@@ -382,9 +446,33 @@ async fn handle_connection(
     // Connect to XMPP server (STARTTLS or direct TLS)
     match endpoint.mode {
         ConnectionMode::Tcp => {
-            let tcp_stream = TcpStream::connect(format!("{}:{}", endpoint.host, endpoint.port))
-                .await
-                .map_err(|e| format!("Failed to connect to XMPP server: {}", e))?;
+            let tcp_stream = tokio::time::timeout(
+                TCP_CONNECT_TIMEOUT,
+                TcpStream::connect(format!("{}:{}", endpoint.host, endpoint.port)),
+            )
+            .await
+            .map_err(|_| {
+                error!(
+                    host = %endpoint.host, port = endpoint.port, mode = "starttls",
+                    timeout_secs = TCP_CONNECT_TIMEOUT.as_secs(),
+                    "TCP connect timed out"
+                );
+                format!(
+                    "TCP connect timed out after {}s to {}:{}",
+                    TCP_CONNECT_TIMEOUT.as_secs(), endpoint.host, endpoint.port
+                )
+            })?
+            .map_err(|e| {
+                error!(
+                    host = %endpoint.host, port = endpoint.port, mode = "starttls",
+                    error = %e, error_kind = ?e.kind(),
+                    "TCP connect failed"
+                );
+                format!(
+                    "Failed to connect to XMPP server {}:{} (STARTTLS): {}",
+                    endpoint.host, endpoint.port, e
+                )
+            })?;
             info!(host = %endpoint.host, port = endpoint.port, "Connected (TCP), performing STARTTLS");
 
             // Perform STARTTLS negotiation: the proxy handles the TLS upgrade transparently
@@ -394,9 +482,33 @@ async fn handle_connection(
             bridge_websocket_tls(ws, tls_stream, shutdown).await
         }
         ConnectionMode::DirectTls => {
-            let tcp_stream = TcpStream::connect(format!("{}:{}", endpoint.host, endpoint.port))
-                .await
-                .map_err(|e| format!("Failed to connect to XMPP server: {}", e))?;
+            let tcp_stream = tokio::time::timeout(
+                TCP_CONNECT_TIMEOUT,
+                TcpStream::connect(format!("{}:{}", endpoint.host, endpoint.port)),
+            )
+            .await
+            .map_err(|_| {
+                error!(
+                    host = %endpoint.host, port = endpoint.port, mode = "direct_tls",
+                    timeout_secs = TCP_CONNECT_TIMEOUT.as_secs(),
+                    "TCP connect timed out"
+                );
+                format!(
+                    "TCP connect timed out after {}s to {}:{}",
+                    TCP_CONNECT_TIMEOUT.as_secs(), endpoint.host, endpoint.port
+                )
+            })?
+            .map_err(|e| {
+                error!(
+                    host = %endpoint.host, port = endpoint.port, mode = "direct_tls",
+                    error = %e, error_kind = ?e.kind(),
+                    "TCP connect failed"
+                );
+                format!(
+                    "Failed to connect to XMPP server {}:{} (direct TLS): {}",
+                    endpoint.host, endpoint.port, e
+                )
+            })?;
 
             let tls_stream = upgrade_to_tls(tcp_stream, &endpoint.host).await?;
 
@@ -737,7 +849,11 @@ async fn bridge_websocket_tls(
     let (mut ws_write, mut ws_read) = ws.split();
     let (mut tls_read, mut tls_write) = tokio::io::split(tls_stream);
 
+    // Shared activity timestamp for inactivity watchdog (epoch millis)
+    let last_activity = Arc::new(AtomicU64::new(now_millis()));
+
     // Task 1: WebSocket -> TLS (translate RFC 7395 WebSocket framing to traditional XMPP)
+    let activity_ws = last_activity.clone();
     let ws_to_tls = tokio::spawn(async move {
         while let Some(msg) = ws_read.next().await {
             match msg {
@@ -753,6 +869,7 @@ async fn bridge_websocket_tls(
                         error!(error = %e, "WS->TLS write error");
                         break;
                     }
+                    activity_ws.store(now_millis(), Ordering::Relaxed);
                 }
                 Ok(Message::Close(_)) => {
                     info!("WebSocket closed by client");
@@ -768,6 +885,7 @@ async fn bridge_websocket_tls(
     });
 
     // Task 2: TLS -> WebSocket (requires stanza boundary detection)
+    let activity_tls = last_activity.clone();
     let tls_to_ws = tokio::spawn(async move {
         let mut buffer = Vec::new();
         let mut read_buf = [0u8; 8192];
@@ -794,6 +912,7 @@ async fn bridge_websocket_tls(
                         }
                         buffer = remaining;
                     }
+                    activity_tls.store(now_millis(), Ordering::Relaxed);
                 }
                 Err(e) => {
                     error!(error = %e, "TLS read error");
@@ -803,10 +922,31 @@ async fn bridge_websocket_tls(
         }
     });
 
-    // Wait for either task to complete or shutdown signal
+    // Watchdog: periodically check for inactivity to detect zombie connections
+    let watchdog_activity = last_activity.clone();
+    let watchdog = async move {
+        loop {
+            tokio::time::sleep(WATCHDOG_CHECK_INTERVAL).await;
+            let last = watchdog_activity.load(Ordering::Relaxed);
+            let elapsed_ms = now_millis().saturating_sub(last);
+            if elapsed_ms > BRIDGE_INACTIVITY_TIMEOUT.as_millis() as u64 {
+                warn!(
+                    elapsed_secs = elapsed_ms / 1000,
+                    timeout_secs = BRIDGE_INACTIVITY_TIMEOUT.as_secs(),
+                    "Bridge inactivity watchdog triggered, closing connection"
+                );
+                break;
+            }
+        }
+    };
+
+    // Wait for any task to complete, watchdog to trigger, or shutdown signal
     tokio::select! {
         _ = ws_to_tls => {}
         _ = tls_to_ws => {}
+        _ = watchdog => {
+            info!("Connection closed by inactivity watchdog");
+        }
         _ = shutdown.recv() => {
             info!("Connection closed by shutdown");
         }
