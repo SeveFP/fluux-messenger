@@ -768,7 +768,9 @@ async fn perform_starttls(
         debug!(bytes = n, "STARTTLS: Received data");
 
         // Extract stanzas from the buffer
-        while let Some(stanza) = extract_stanza(&mut buffer) {
+        let mut consumed = 0;
+        while let Some((stanza, bytes_used)) = extract_stanza(&buffer[consumed..]) {
+            consumed += bytes_used;
             debug!(stanza = %stanza, "STARTTLS: Extracted stanza");
 
             if stanza.contains("<stream:stream") {
@@ -784,6 +786,9 @@ async fn perform_starttls(
 
             // Unexpected stanza before features
             warn!(stanza = %stanza, "STARTTLS: Unexpected stanza before features");
+        }
+        if consumed > 0 {
+            buffer.drain(..consumed);
         }
 
         if !features_xml.is_empty() {
@@ -835,7 +840,7 @@ async fn perform_starttls(
         buffer.extend_from_slice(&read_buf[..n]);
         debug!(bytes = n, "STARTTLS: Received data");
 
-        if let Some(stanza) = extract_stanza(&mut buffer) {
+        if let Some((stanza, _)) = extract_stanza(&buffer) {
             proceed_xml = stanza;
             break;
         }
@@ -928,14 +933,20 @@ async fn bridge_websocket_tls(
 
                     debug!(bytes = n, "Received from TLS");
 
-                    // Extract complete stanzas from buffer and translate to RFC 7395
-                    while let Some(stanza) = extract_stanza(&mut buffer) {
+                    // Extract complete stanzas from buffer and translate to RFC 7395.
+                    // Track consumed offset to avoid O(n²) memmoves — compact once at the end.
+                    let mut consumed = 0;
+                    while let Some((stanza, bytes_used)) = extract_stanza(&buffer[consumed..]) {
+                        consumed += bytes_used;
                         let translated = translate_tcp_to_ws(&stanza);
                         debug!(data = %translated, "TLS->WS");
                         if let Err(e) = ws_write.send(Message::Text(translated.into_owned())).await {
                             debug!(error = %e, "TLS->WS write error (WebSocket likely closed)");
                             return;
                         }
+                    }
+                    if consumed > 0 {
+                        buffer.drain(..consumed);
                     }
 
                     // Guard against unbounded buffer growth from incomplete/malformed XML
@@ -995,15 +1006,6 @@ async fn bridge_websocket_tls(
     Ok(())
 }
 
-/// Extract a complete XMPP stanza from the buffer using depth counting.
-/// Returns (stanza_xml, remaining_buffer) if a complete stanza is found.
-///
-/// This uses a lightweight depth-counting approach:
-/// - Depth 0: The <stream:stream> wrapper
-/// - Depth 1: XMPP stanzas (<message/>, <presence/>, <iq/>, etc.)
-/// - Depth 2+: Children within stanzas
-///
-/// A stanza is complete when we return from depth 2 to depth 1 (closing tag of depth-1 element).
 /// State machine for stanza boundary detection (inspired by Fluux Agent's StanzaParser).
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum ParserState {
@@ -1013,52 +1015,31 @@ enum ParserState {
     InStanza,
 }
 
-/// Extracts a single XMPP stanza from the front of a buffer using an event-driven state machine.
-///
-/// This implementation mirrors Fluux Agent's StanzaParser approach:
-/// - Uses a state machine (Idle/InStanza) to track parsing progress
-/// - Tracks depth and stream_depth to detect stanza boundaries correctly
-/// - Lets quick-xml handle XML parsing and partial buffer handling
-/// - Handles TCP fragmentation automatically (quick-xml buffers incomplete events)
-///
-/// Returns Some((stanza_xml, remaining_bytes)) if a complete stanza was found,
-/// or None if the buffer doesn't contain a complete stanza yet.
-///
-/// Handles:
-/// - Stream opening tags (<stream:stream>) — returned immediately as stream-level event
-/// - Stream closing tags (</stream:stream>) — returned immediately as stream-level event
-/// - Regular stanzas — extracted when depth returns to 0 while InStanza
-/// - Nested children — properly tracked using depth counting
-/// Drain bytes `[start..end)` from the buffer and convert to a String.
-///
-/// Removes all bytes up to `end` from the buffer (including any prefix before `start`).
-/// Converts the `[start..end)` slice to UTF-8, replacing invalid sequences with U+FFFD.
-/// Reuses the drained allocation when possible (i.e., when `start == 0` and bytes are valid UTF-8).
-fn drain_as_string(buffer: &mut Vec<u8>, start: usize, end: usize) -> String {
-    if start == 0 {
-        let bytes: Vec<u8> = buffer.drain(..end).collect();
-        String::from_utf8(bytes).unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
-    } else {
-        // Discard prefix before start, then drain the stanza bytes
-        buffer.drain(..start);
-        let bytes: Vec<u8> = buffer.drain(..end - start).collect();
-        String::from_utf8(bytes).unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned())
+/// Convert a byte slice to a String, trying zero-copy UTF-8 first.
+fn bytes_to_string(bytes: &[u8]) -> String {
+    match std::str::from_utf8(bytes) {
+        Ok(s) => s.to_string(),
+        Err(_) => String::from_utf8_lossy(bytes).into_owned(),
     }
 }
 
-fn extract_stanza(buffer: &mut Vec<u8>) -> Option<String> {
+/// Extract a single complete XMPP stanza from the given buffer slice.
+///
+/// Returns `Some((stanza_string, bytes_consumed))` if a complete stanza was found,
+/// or `None` if the buffer doesn't contain a complete stanza yet.
+/// The caller is responsible for advancing past the consumed bytes.
+fn extract_stanza(buffer: &[u8]) -> Option<(String, usize)> {
     // Special case: check for stream closing tag first
     // This appears alone without a matching opening tag in the buffer
     let trimmed = buffer.iter().position(|&b| b != b' ' && b != b'\t' && b != b'\n' && b != b'\r');
     if let Some(start) = trimmed {
         if buffer[start..].starts_with(b"</stream:stream>") {
             let tag_end = start + b"</stream:stream>".len();
-            buffer.drain(..tag_end);
-            return Some("</stream:stream>".to_string());
+            return Some(("</stream:stream>".to_string(), tag_end));
         }
     }
 
-    let mut reader = Reader::from_reader(buffer.as_slice());
+    let mut reader = Reader::from_reader(buffer);
     reader.config_mut().trim_text(false);
     reader.config_mut().check_end_names = false; // Faster parsing
 
@@ -1081,7 +1062,7 @@ fn extract_stanza(buffer: &mut Vec<u8>) -> Option<String> {
                 if state == ParserState::Idle && (local_name.as_ref() == b"stream" || e.name().as_ref() == b"stream:stream") {
                     // Return the stream opening immediately
                     let tag_end = reader.buffer_position() as usize;
-                    return Some(drain_as_string(buffer, 0, tag_end));
+                    return Some((bytes_to_string(&buffer[0..tag_end]), tag_end));
                 }
 
                 depth += 1;
@@ -1098,13 +1079,13 @@ fn extract_stanza(buffer: &mut Vec<u8>) -> Option<String> {
                 // Self-closing stream:stream (rare, but possible)
                 if state == ParserState::Idle && (local_name.as_ref() == b"stream" || e.name().as_ref() == b"stream:stream") {
                     let tag_end = reader.buffer_position() as usize;
-                    return Some(drain_as_string(buffer, 0, tag_end));
+                    return Some((bytes_to_string(&buffer[0..tag_end]), tag_end));
                 }
 
                 // Self-closing top-level stanza (e.g., <presence/>, <r xmlns='urn:xmpp:sm:3'/>)
                 if state == ParserState::Idle && depth == 0 {
                     let tag_end = reader.buffer_position() as usize;
-                    return Some(drain_as_string(buffer, pos, tag_end));
+                    return Some((bytes_to_string(&buffer[pos..tag_end]), tag_end));
                 }
 
                 // Otherwise it's a self-closing child element, continue
@@ -1118,8 +1099,7 @@ fn extract_stanza(buffer: &mut Vec<u8>) -> Option<String> {
                 // Handle </stream:stream> closing
                 if (local_name.as_ref() == b"stream" || e.name().as_ref() == b"stream:stream") && depth == 0 {
                     let tag_end = reader.buffer_position() as usize;
-                    buffer.drain(..tag_end);
-                    return Some("</stream:stream>".to_string());
+                    return Some(("</stream:stream>".to_string(), tag_end));
                 }
 
                 depth = depth.saturating_sub(1);
@@ -1127,7 +1107,7 @@ fn extract_stanza(buffer: &mut Vec<u8>) -> Option<String> {
                 // Stanza complete when depth returns to 0 while InStanza
                 if state == ParserState::InStanza && depth == 0 {
                     let tag_end = reader.buffer_position() as usize;
-                    return Some(drain_as_string(buffer, stanza_start, tag_end));
+                    return Some((bytes_to_string(&buffer[stanza_start..tag_end]), tag_end));
                 }
             }
             Ok(Event::Eof) => {
@@ -1187,74 +1167,77 @@ mod tests {
 
     #[test]
     fn test_extract_stream_opening() {
-        let mut buf = b"<?xml version='1.0'?><stream:stream xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>".to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"<?xml version='1.0'?><stream:stream xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' version='1.0'>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert!(stanza.contains("<stream:stream"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_extract_stream_features() {
-        let mut buf = b"<stream:features><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>PLAIN</mechanism><mechanism>SCRAM-SHA-1</mechanism></mechanisms><starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/></stream:features>".to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"<stream:features><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>PLAIN</mechanism><mechanism>SCRAM-SHA-1</mechanism></mechanisms><starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/></stream:features>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         // Should extract the ENTIRE <stream:features> element
         assert!(stanza.contains("<stream:features"));
         assert!(stanza.contains("</stream:features>"));
         assert!(stanza.contains("<mechanisms"));
         assert!(stanza.contains("</mechanisms>"));
         assert!(stanza.contains("<starttls"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_extract_simple_stanza() {
-        let mut buf = b"<presence/>".to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"<presence/>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert_eq!(stanza, "<presence/>");
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_extract_nested_stanza() {
-        let mut buf = b"<iq type='result'><query xmlns='jabber:iq:roster'><item jid='user@example.com'/></query></iq>".to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"<iq type='result'><query xmlns='jabber:iq:roster'><item jid='user@example.com'/></query></iq>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert!(stanza.contains("<iq"));
         assert!(stanza.contains("</iq>"));
         assert!(stanza.contains("<query"));
         assert!(stanza.contains("</query>"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_extract_multiple_stanzas() {
-        let mut buf = b"<presence from='user@example.com'/><message to='other@example.com'><body>Hello</body></message>".to_vec();
+        let buf = b"<presence from='user@example.com'/><message to='other@example.com'><body>Hello</body></message>";
+        let mut offset = 0;
 
         // First extraction
-        let stanza1 = extract_stanza(&mut buf).unwrap();
+        let (stanza1, consumed1) = extract_stanza(&buf[offset..]).unwrap();
+        offset += consumed1;
         assert!(stanza1.contains("<presence"));
         assert!(!stanza1.contains("<message"));
 
-        // Second extraction from same buffer (drained in-place)
-        let stanza2 = extract_stanza(&mut buf).unwrap();
+        // Second extraction from remaining slice
+        let (stanza2, consumed2) = extract_stanza(&buf[offset..]).unwrap();
+        offset += consumed2;
         assert!(stanza2.contains("<message"));
         assert!(stanza2.contains("Hello"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(offset, buf.len());
     }
 
     #[test]
     fn test_extract_incomplete_stanza() {
         // Incomplete XML - missing closing tag
-        let mut buf = b"<iq type='get'><query xmlns='jabber:iq:roster'>".to_vec();
+        let buf = b"<iq type='get'><query xmlns='jabber:iq:roster'>";
         // Should return None because stanza is incomplete
-        assert!(extract_stanza(&mut buf).is_none());
+        assert!(extract_stanza(buf).is_none());
     }
 
     #[test]
     fn test_extract_stream_closing() {
-        let mut buf = b"</stream:stream>".to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"</stream:stream>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert_eq!(stanza, "</stream:stream>");
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
@@ -1368,97 +1351,103 @@ mod tests {
     #[test]
     fn test_extract_sm_stanzas() {
         // XEP-0198 Stream Management <r/> and <a/> are self-closing top-level stanzas
-        let mut buf = b"<r xmlns='urn:xmpp:sm:3'/><a xmlns='urn:xmpp:sm:3' h='5'/>".to_vec();
+        let buf = b"<r xmlns='urn:xmpp:sm:3'/><a xmlns='urn:xmpp:sm:3' h='5'/>";
+        let mut offset = 0;
 
-        let stanza1 = extract_stanza(&mut buf).unwrap();
+        let (stanza1, consumed1) = extract_stanza(&buf[offset..]).unwrap();
+        offset += consumed1;
         assert!(stanza1.contains("<r xmlns"));
         assert!(stanza1.contains("urn:xmpp:sm:3"));
 
-        let stanza2 = extract_stanza(&mut buf).unwrap();
+        let (stanza2, consumed2) = extract_stanza(&buf[offset..]).unwrap();
+        offset += consumed2;
         assert!(stanza2.contains("<a xmlns"));
         assert!(stanza2.contains("h="));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(offset, buf.len());
     }
 
     #[test]
     fn test_extract_message_with_body_text() {
-        let mut buf = b"<message from='alice@example.com' to='bob@example.com' type='chat'><body>Hello, world!</body></message>".to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"<message from='alice@example.com' to='bob@example.com' type='chat'><body>Hello, world!</body></message>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert!(stanza.contains("Hello, world!"));
         assert!(stanza.contains("<body>"));
         assert!(stanza.contains("</body>"));
         assert!(stanza.contains("</message>"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_extract_stanzas_with_xml_declaration_prefix() {
         // Real server response: XML declaration followed by stream:stream followed by features
-        let mut buf = b"<?xml version='1.0'?><stream:stream xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' from='example.com' version='1.0'>".to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"<?xml version='1.0'?><stream:stream xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' from='example.com' version='1.0'>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         // The XML declaration should be included in the returned stream tag
         assert!(stanza.contains("<?xml"));
         assert!(stanza.contains("<stream:stream"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_extract_stanza_with_multiple_children_and_text() {
         // A typical message stanza with multiple children
-        let mut buf = b"<message type='chat' from='user@example.com/res'><body>Test</body><active xmlns='http://jabber.org/protocol/chatstates'/></message>".to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"<message type='chat' from='user@example.com/res'><body>Test</body><active xmlns='http://jabber.org/protocol/chatstates'/></message>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert!(stanza.contains("<body>Test</body>"));
         assert!(stanza.contains("<active xmlns="));
         assert!(stanza.contains("</message>"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_extract_empty_buffer() {
-        let mut buf = b"".to_vec();
-        assert!(extract_stanza(&mut buf).is_none());
+        assert!(extract_stanza(b"").is_none());
     }
 
     #[test]
     fn test_extract_whitespace_only_buffer() {
-        let mut buf = b"   \n  ".to_vec();
-        assert!(extract_stanza(&mut buf).is_none());
+        assert!(extract_stanza(b"   \n  ").is_none());
     }
 
     #[test]
     fn test_extract_stream_close_with_leading_whitespace() {
-        let mut buf = b"  </stream:stream>".to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"  </stream:stream>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert_eq!(stanza, "</stream:stream>");
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_extract_iq_result_with_bind() {
         // Typical bind result after authentication
-        let mut buf = b"<iq type='result' id='bind_1'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><jid>user@example.com/resource</jid></bind></iq>".to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"<iq type='result' id='bind_1'><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'><jid>user@example.com/resource</jid></bind></iq>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert!(stanza.contains("user@example.com/resource"));
         assert!(stanza.contains("</bind>"));
         assert!(stanza.contains("</iq>"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_extract_three_consecutive_stanzas() {
         // Three stanzas in one buffer: self-closing, regular, self-closing
-        let mut buf = b"<r xmlns='urn:xmpp:sm:3'/><message to='a@b'><body>Hi</body></message><a xmlns='urn:xmpp:sm:3' h='1'/>".to_vec();
+        let buf = b"<r xmlns='urn:xmpp:sm:3'/><message to='a@b'><body>Hi</body></message><a xmlns='urn:xmpp:sm:3' h='1'/>";
+        let mut offset = 0;
 
-        let s1 = extract_stanza(&mut buf).unwrap();
+        let (s1, c1) = extract_stanza(&buf[offset..]).unwrap();
+        offset += c1;
         assert!(s1.contains("<r xmlns"));
 
-        let s2 = extract_stanza(&mut buf).unwrap();
+        let (s2, c2) = extract_stanza(&buf[offset..]).unwrap();
+        offset += c2;
         assert!(s2.contains("<message"));
         assert!(s2.contains("Hi"));
 
-        let s3 = extract_stanza(&mut buf).unwrap();
+        let (s3, c3) = extract_stanza(&buf[offset..]).unwrap();
+        offset += c3;
         assert!(s3.contains("<a xmlns"));
         assert!(s3.contains("h="));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(offset, buf.len());
     }
 
     // --- stream: prefix rewriting tests ---
@@ -1612,73 +1601,79 @@ mod tests {
     fn test_starttls_extract_server_stream_and_features() {
         // Simulates the server response after proxy sends <stream:stream>:
         // First the server sends back its own <stream:stream>, then <stream:features>
-        let mut buf = b"<?xml version='1.0'?><stream:stream xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' from='example.com' id='abc' version='1.0'><stream:features><starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'><required/></starttls><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>SCRAM-SHA-1</mechanism></mechanisms></stream:features>".to_vec();
+        let buf = b"<?xml version='1.0'?><stream:stream xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' from='example.com' id='abc' version='1.0'><stream:features><starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'><required/></starttls><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>SCRAM-SHA-1</mechanism></mechanisms></stream:features>";
+        let mut offset = 0;
 
         // First extraction: stream header
-        let stanza1 = extract_stanza(&mut buf).unwrap();
+        let (stanza1, c1) = extract_stanza(&buf[offset..]).unwrap();
+        offset += c1;
         assert!(stanza1.contains("<stream:stream"));
         assert!(stanza1.contains("from='example.com'"));
 
         // Second extraction: stream features
-        let stanza2 = extract_stanza(&mut buf).unwrap();
+        let (stanza2, c2) = extract_stanza(&buf[offset..]).unwrap();
+        offset += c2;
         assert!(stanza2.contains("<stream:features"));
         assert!(stanza2.contains("</stream:features>"));
         // Verify <starttls> is present (this is what perform_starttls checks)
         assert!(stanza2.contains("<starttls"));
         assert!(stanza2.contains("urn:ietf:params:xml:ns:xmpp-tls"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(offset, buf.len());
     }
 
     #[test]
     fn test_starttls_extract_features_without_starttls() {
         // Server that does NOT offer STARTTLS (e.g., already on direct TLS)
-        let mut buf = b"<stream:features><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>SCRAM-SHA-1</mechanism></mechanisms><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'/></stream:features>".to_vec();
+        let buf = b"<stream:features><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>SCRAM-SHA-1</mechanism></mechanisms><bind xmlns='urn:ietf:params:xml:ns:xmpp-bind'/></stream:features>";
 
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         // Verify <starttls> is NOT present
         assert!(!stanza.contains("<starttls"));
+        assert_eq!(consumed, buf.len());
         // The perform_starttls function would return an error in this case
     }
 
     #[test]
     fn test_starttls_extract_proceed() {
         // Server sends <proceed/> after receiving <starttls/>
-        let mut buf = b"<proceed xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>".to_vec();
+        let buf = b"<proceed xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>";
 
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert!(stanza.contains("<proceed"));
         assert!(stanza.contains("urn:ietf:params:xml:ns:xmpp-tls"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_starttls_extract_failure() {
         // Server sends <failure/> if STARTTLS is rejected
-        let mut buf = b"<failure xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>".to_vec();
+        let buf = b"<failure xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>";
 
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert!(stanza.contains("<failure"));
         assert!(stanza.contains("urn:ietf:params:xml:ns:xmpp-tls"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_starttls_features_with_required_flag() {
         // STARTTLS with <required/> child means server mandates TLS
-        let mut buf = b"<stream:features><starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'><required/></starttls></stream:features>".to_vec();
+        let buf = b"<stream:features><starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'><required/></starttls></stream:features>";
 
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert!(stanza.contains("<starttls"));
         assert!(stanza.contains("<required/>"));
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_starttls_features_optional() {
         // STARTTLS without <required/> means TLS is optional
-        let mut buf = b"<stream:features><starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>PLAIN</mechanism></mechanisms></stream:features>".to_vec();
+        let buf = b"<stream:features><starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>PLAIN</mechanism></mechanisms></stream:features>";
 
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert!(stanza.contains("<starttls"));
+        assert_eq!(consumed, buf.len());
         // We still negotiate STARTTLS even when optional (security best practice)
     }
 
@@ -1688,19 +1683,20 @@ mod tests {
         // This simulates TCP fragmentation
 
         // Fragment 1: just the stream header
-        let mut buf1 = b"<?xml version='1.0'?><stream:stream xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' from='example.com' version='1.0'>".to_vec();
-        let stanza1 = extract_stanza(&mut buf1).unwrap();
+        let buf1 = b"<?xml version='1.0'?><stream:stream xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams' from='example.com' version='1.0'>";
+        let (stanza1, consumed1) = extract_stanza(buf1).unwrap();
         assert!(stanza1.contains("<stream:stream"));
-        assert_eq!(buf1.len(), 0);
+        assert_eq!(consumed1, buf1.len());
 
         // Fragment 2: incomplete features
-        let mut buf2 = b"<stream:features><starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>".to_vec();
+        let buf2 = b"<stream:features><starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>";
         // Should be None — features not complete yet
-        assert!(extract_stanza(&mut buf2).is_none());
+        assert!(extract_stanza(buf2).is_none());
 
         // Fragment 2 + 3: complete features
-        buf2.extend_from_slice(b"</stream:features>");
-        let stanza3 = extract_stanza(&mut buf2).unwrap();
+        let mut buf2_full = buf2.to_vec();
+        buf2_full.extend_from_slice(b"</stream:features>");
+        let (stanza3, _) = extract_stanza(&buf2_full).unwrap();
         assert!(stanza3.contains("<stream:features"));
         assert!(stanza3.contains("<starttls"));
         assert!(stanza3.contains("</stream:features>"));
@@ -1710,11 +1706,11 @@ mod tests {
     fn test_starttls_stream_open_format() {
         // Verify the stream open format that perform_starttls sends matches what
         // extract_stanza can parse from the server response
-        let mut buf = "<?xml version='1.0'?><stream:stream to='example.com' version='1.0' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'>".as_bytes().to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"<?xml version='1.0'?><stream:stream to='example.com' version='1.0' xmlns='jabber:client' xmlns:stream='http://etherx.jabber.org/streams'>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert!(stanza.contains("<stream:stream"));
         assert!(stanza.contains("to='example.com'"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     // --- Cow<str> passthrough tests ---
@@ -1803,21 +1799,21 @@ mod tests {
 
     #[test]
     fn test_extract_stanza_with_xml_entities() {
-        let mut buf = b"<message from='a@b' to='c@d'><body>Hello &amp; welcome &lt;friend&gt;</body></message>".to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"<message from='a@b' to='c@d'><body>Hello &amp; welcome &lt;friend&gt;</body></message>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert!(stanza.contains("&amp;"));
         assert!(stanza.contains("&lt;friend&gt;"));
         assert!(stanza.contains("</message>"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     #[test]
     fn test_extract_stanza_with_cdata() {
-        let mut buf = b"<message from='a@b'><body><![CDATA[Some <raw> content & stuff]]></body></message>".to_vec();
-        let stanza = extract_stanza(&mut buf).unwrap();
+        let buf = b"<message from='a@b'><body><![CDATA[Some <raw> content & stuff]]></body></message>";
+        let (stanza, consumed) = extract_stanza(buf).unwrap();
         assert!(stanza.contains("CDATA"));
         assert!(stanza.contains("</message>"));
-        assert_eq!(buf.len(), 0);
+        assert_eq!(consumed, buf.len());
     }
 
     // --- ConnectionGuard tests ---

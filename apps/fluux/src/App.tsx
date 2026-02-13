@@ -130,19 +130,12 @@ function App() {
     )
   }
 
-  // Show login if disconnected, connecting, or error (to display error message)
-  // Only show login if we don't have a stored session
+  // Show login if disconnected, connecting, or error — but only when no stored session exists.
+  // When a session exists (e.g., during SDK reconnection after sleep), stay on ChatLayout
+  // where the inline reconnect indicator shows. Without the !hasSession guard, each reconnect
+  // attempt briefly sets status='connecting', causing LoginScreen to mount/unmount repeatedly
+  // and triggering a keychain read on each mount (flooding the log with keychain access).
   if ((status === 'disconnected' || status === 'connecting' || status === 'error') && !hasSession) {
-    return (
-      <>
-        <TitleBar />
-        <LoginScreen />
-      </>
-    )
-  }
-
-  // Show login on error even with session (to display error message and allow retry)
-  if (status === 'error') {
     return (
       <>
         <TitleBar />

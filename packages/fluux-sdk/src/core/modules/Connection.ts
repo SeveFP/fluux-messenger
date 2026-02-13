@@ -1321,7 +1321,9 @@ export class Connection extends BaseModule {
     this.isReconnecting = true
     this.reconnectAttempt++
 
-    // Stop after max attempts to prevent infinite loop
+    // Stop after max attempts to prevent infinite loop.
+    // Keep credentials — they're likely valid (network issue, not auth failure).
+    // Clearing them would force a keychain round-trip on next connect attempt.
     if (this.reconnectAttempt > MAX_RECONNECT_ATTEMPTS) {
       const errorMsg = 'Connection failed after multiple retry attempts'
       this.stores.console.addEvent(
@@ -1334,7 +1336,6 @@ export class Connection extends BaseModule {
       this.deps.emitSDK('connection:status', { status: 'error', error: errorMsg })
       this.isReconnecting = false
       this.reconnectAttempt = 0
-      this.credentials = null
       return
     }
     const delay = Math.min(
