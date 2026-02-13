@@ -31,7 +31,7 @@ export interface EntityNotificationState {
   /**
    * When this entity was last read by the user.
    * Used as a reference timestamp for various operations.
-   * Set to epoch (Date(0)) when first unread arrives and lastReadAt was undefined.
+   * Remains undefined until the user first reads the entity.
    */
   lastReadAt?: Date
   /**
@@ -134,8 +134,10 @@ export function onMessageReceived(
   const newUnreadCount = incrementUnread ? state.unreadCount + 1 : state.unreadCount
   const newMentionsCount = incrementMentions ? state.mentionsCount + 1 : state.mentionsCount
 
-  // Initialize lastReadAt to epoch if undefined (so marker position is correct)
-  const newLastReadAt = state.lastReadAt === undefined ? new Date(0) : state.lastReadAt
+  // Preserve existing lastReadAt (or leave undefined if never set).
+  // Previously this initialized to epoch (Date(0)) as a sentinel, but that
+  // caused onActivate's fallback to place the marker at the very first message.
+  const newLastReadAt = state.lastReadAt
 
   // Set marker if: entity is active AND window hidden AND no existing marker
   const newFirstNewMessageId =
@@ -186,10 +188,17 @@ export function onActivate(
       // loaded slice (e.g., cache loaded latest 100 of 500+ messages).
       // Use lastReadAt as a timestamp-based fallback to find the correct
       // marker position within the loaded messages.
-      if (state.lastReadAt) {
-        const fallbackReadAt = state.lastReadAt instanceof Date
-          ? state.lastReadAt
-          : new Date(state.lastReadAt as unknown as string)
+      const fallbackReadAt = state.lastReadAt instanceof Date
+        ? state.lastReadAt
+        : state.lastReadAt ? new Date(state.lastReadAt as unknown as string) : undefined
+
+      // Only use lastReadAt as fallback if it's a real timestamp (not epoch).
+      // Epoch (Date(0)) is a sentinel meaning "we had no prior lastReadAt when
+      // the first unread arrived" — it would match the very first message in the
+      // array, placing the marker far too early.
+      const hasUsableLastReadAt = fallbackReadAt && fallbackReadAt.getTime() > 0
+
+      if (hasUsableLastReadAt) {
         const firstNew = messages.find(
           (msg) => msg.timestamp > fallbackReadAt && !msg.isOutgoing && !msg.isDelayed
         )
@@ -197,10 +206,26 @@ export function onActivate(
           firstNewMessageId = firstNew.id
         }
       } else if (state.unreadCount > 0) {
-        // No lastReadAt available either — absolute last resort.
-        const firstIncoming = messages.find((m) => !m.isOutgoing && !m.isDelayed)
-        if (firstIncoming) {
-          firstNewMessageId = firstIncoming.id
+        // No usable lastReadAt — use unreadCount to place marker at the Nth
+        // message from the end (counting only incoming, non-delayed messages).
+        let remaining = state.unreadCount
+        for (let i = messages.length - 1; i >= 0; i--) {
+          const m = messages[i]
+          if (!m.isOutgoing && !m.isDelayed) {
+            remaining--
+            if (remaining === 0) {
+              firstNewMessageId = m.id
+              break
+            }
+          }
+        }
+        // If we ran out of messages before exhausting unreadCount,
+        // place marker at the first incoming message.
+        if (remaining > 0) {
+          const firstIncoming = messages.find((m) => !m.isOutgoing && !m.isDelayed)
+          if (firstIncoming) {
+            firstNewMessageId = firstIncoming.id
+          }
         }
       }
 
@@ -345,6 +370,14 @@ export function onMessageSeen(
   // Find positions to compare ordering
   const currentIdx = messages.findIndex((m) => m.id === state.lastSeenMessageId)
   const newIdx = messages.findIndex((m) => m.id === messageId)
+
+  // If current lastSeenMessageId is not in the loaded messages array (stale/trimmed),
+  // don't update — the stale ID will be resolved properly on the next onActivate.
+  // Without this guard, any visible message would "win" against -1, potentially
+  // regressing lastSeenMessageId to an earlier position.
+  if (currentIdx === -1) {
+    return state
+  }
 
   // Only advance forward
   if (newIdx > currentIdx) {
