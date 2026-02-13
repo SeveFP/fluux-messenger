@@ -907,7 +907,7 @@ async fn bridge_websocket_tls(
                         let translated = translate_tcp_to_ws(&stanza);
                         debug!(data = %translated, "TLS->WS");
                         if let Err(e) = ws_write.send(Message::Text(translated.into_owned())).await {
-                            error!(error = %e, "TLS->WS write error");
+                            debug!(error = %e, "TLS->WS write error (WebSocket likely closed)");
                             return;
                         }
                         buffer = remaining;
